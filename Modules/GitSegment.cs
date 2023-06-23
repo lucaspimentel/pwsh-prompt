@@ -5,7 +5,7 @@ namespace Prompt.Modules;
 
 internal readonly struct GitSegment : ISegment
 {
-    private const string Prefix = "in  ";
+    private const string Prefix = " in  ";
 
     private readonly Microsoft.Extensions.Primitives.StringSegment _branchName;
 
@@ -15,9 +15,9 @@ internal readonly struct GitSegment : ISegment
         _branchName = GitInfo.GetBranchName(currentDirectory);
     }
 
-    public  int UnformattedLength => _branchName.Length + Prefix.Length;
+    public int UnformattedLength => Prefix.Length + _branchName.Length;
 
-    public  void Append(ref ValueStringBuilder sb)
+    public void Append(ref ValueStringBuilder sb)
     {
         if (_branchName.Length == 0)
         {

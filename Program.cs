@@ -53,48 +53,36 @@ internal static class Program
                 // Console.WriteLine($"{pathSegment}{gitSegment}{fillerSegment}{durationSegment}{dateTimeSegment}");
                 // Console.WriteLine($"{osSegment}{shellSegment}{promptSegment}");
 
-                var spaceSegment = new StringSegment(" ");
+                // var spaceSegment = new StringSegment(" ");
                 var newLineSegment = new NewLineSegment();
                 var pathSegment = new PathSegment();
                 var gitSegment = new GitSegment();
                 var lastCommandDurationSegment = new LastCommandDurationSegment(state.LastCommandDurationMs, Settings.LastCommandDurationThresholdMs);
                 var dateTimeSegment = new DateTimeSegment();
                 var osSegment = new OsSegment();
-                var shellSegment = new StringSegment("pwsh");
+                var shellSegment = new StringSegment(" pwsh");
                 var promptSegment = new PromptSegment(Settings.Prompt, state.LastCommandState);
 
-                var fillerWidth = state.TerminalWidth - pathSegment.UnformattedLength - gitSegment.UnformattedLength - lastCommandDurationSegment.UnformattedLength - dateTimeSegment.UnformattedLength - 5;
+                var fillerWidth = state.TerminalWidth - pathSegment.UnformattedLength - gitSegment.UnformattedLength - lastCommandDurationSegment.UnformattedLength - dateTimeSegment.UnformattedLength - 1;
                 var fillerSegment = new StringSegment(fillerWidth <= 0 ? "" : new string(' ', fillerWidth));
 
                 var line1 = new ISegment[]
                             {
                                 newLineSegment,
 
-                                spaceSegment,
                                 pathSegment,
-
-                                spaceSegment,
                                 gitSegment,
 
                                 fillerSegment,
 
-                                spaceSegment,
                                 lastCommandDurationSegment,
-
-                                spaceSegment,
                                 dateTimeSegment,
 
                                 newLineSegment,
 
-                                spaceSegment,
                                 osSegment,
-
-                                spaceSegment,
                                 shellSegment,
-
-                                spaceSegment,
                                 promptSegment,
-                                spaceSegment,
                             };
 
                 Span<char> buffer = stackalloc char[1024];

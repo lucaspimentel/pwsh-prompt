@@ -6,6 +6,8 @@ namespace Prompt.Modules;
 
 internal readonly struct PathSegment : ISegment
 {
+    private const string Prefix = "  ";
+
     private readonly string _currentDirectory;
     private readonly string _userProfileDirectory;
     private readonly bool _inUserHome;
@@ -18,12 +20,13 @@ internal readonly struct PathSegment : ISegment
     }
 
     public int UnformattedLength => _inUserHome ?
-                                                 _currentDirectory.Length - _userProfileDirectory.Length + 3 :
-                                                 _currentDirectory.Length + 2;
+                                        Prefix.Length + _currentDirectory.Length - _userProfileDirectory.Length + 1 :
+                                        Prefix.Length + _currentDirectory.Length;
 
     public void Append(ref ValueStringBuilder sb)
     {
-        sb.Append("[blue] ");
+        sb.Append("[blue]");
+        sb.Append(Prefix);
 
         if (_inUserHome)
         {
