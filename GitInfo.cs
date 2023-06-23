@@ -7,17 +7,26 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Primitives;
+using Spectre.Console;
 
 namespace Prompt;
 
 internal static partial class GitInfo
 {
-    public static ReadOnlySpan<char> GetBranchNameFrom(string path)
+    public static StringSegment GetBranchName(string path)
     {
-        ReadOnlySpan<char> branch = default;
+        string? gitFolder = FindGitFolder(path);
+
+        if (string.IsNullOrEmpty(gitFolder))
+        {
+            return StringSegment.Empty;
+        }
+
+        StringSegment branch = StringSegment.Empty;
 
         // Get Git commit
-        string headPath = Path.Combine(path, "HEAD");
+        string headPath = Path.Combine(gitFolder, "HEAD");
 
         if (File.Exists(headPath))
         {
@@ -26,7 +35,7 @@ internal static partial class GitInfo
             // Symbolic Reference
             if (head.StartsWith("ref:", StringComparison.Ordinal))
             {
-                branch = head.AsSpan(4);
+                branch = new StringSegment(head, 4, head.Length - 4);
             }
         }
 
@@ -42,14 +51,53 @@ internal static partial class GitInfo
             }
         }
 
-        branch = branch.Trim();
-
-        if(branch.StartsWith("refs/heads/", StringComparison.Ordinal))
+        if (branch.Length > 0)
         {
-            branch = branch[11..];
+            branch = branch.Trim();
+        }
+
+        if (branch.StartsWith("refs/heads/", StringComparison.Ordinal))
+        {
+            branch = branch.Subsegment(11);
         }
 
         return branch;
+    }
+
+    private static string? FindGitFolder(string path)
+    {
+        while (true)
+        {
+            string gitPath = Path.Combine(path, ".git");
+
+            if (Settings.Debug)
+            {
+                AnsiConsole.WriteLine();
+                AnsiConsole.MarkupLineInterpolated($"[yellow]Git: checking {gitPath}[/]");
+            }
+
+            if (Directory.Exists(gitPath))
+            {
+                if (Settings.Debug)
+                {
+                    AnsiConsole.MarkupLineInterpolated($"[yellow]Git: found {gitPath}[/]");
+                }
+
+                return gitPath;
+            }
+
+            path = Path.GetDirectoryName(path)!;
+
+            if (string.IsNullOrEmpty(path))
+            {
+                if (Settings.Debug)
+                {
+                    AnsiConsole.MarkupLineInterpolated($"[yellow]Git: folder not found {gitPath}[/]");
+                }
+
+                return null;
+            }
+        }
     }
 
     private static IEnumerable<ConfigItem> GetConfigItems(string configFile)

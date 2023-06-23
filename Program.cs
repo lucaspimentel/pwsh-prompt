@@ -1,274 +1,165 @@
 ﻿using System;
-using System.IO;
 using System.Text;
-using Prompt;
+using Cysharp.Text;
+using Prompt.Modules;
+using Spectre.Console;
 
-switch (args)
+// Invoke-Expression (& 'C:\Program Files\starship\bin\starship.exe' init powershell --print-full-init | Out-String)
+// (@(& 'C:/Users/lucas/AppData/Local/Programs/oh-my-posh/bin/oh-my-posh.exe' init pwsh --config='' --print) -join "`n") | Invoke-Expression
+
+// $host.ui.RawUI.WindowTitle = 'pwsh'
+// [System.Console]::OutputEncoding = [System.Text.Encoding]::UTF8;
+// ❯    󰅒 󰥕
+
+namespace Prompt;
+
+internal static class Program
 {
-    case ["init"]:
+    public static void Main(string[] args)
     {
-        // Invoke-Expression (& 'C:\Program Files\starship\bin\starship.exe' init powershell --print-full-init | Out-String)
-        // (@(& 'C:/Users/lucas/AppData/Local/Programs/oh-my-posh/bin/oh-my-posh.exe' init pwsh --config='' --print) -join "`n") | Invoke-Expression
+        switch (args)
+        {
+            case ["init"]:
+            {
+#pragma warning disable Spectre1000
+                string initString = Init.GetPowerShell(Environment.ProcessPath!);
+                Console.WriteLine(initString);
+#pragma warning restore Spectre1000
+                return;
+            }
 
-        // $host.ui.RawUI.WindowTitle = 'pwsh'
-        // [System.Console]::OutputEncoding = [System.Text.Encoding]::UTF8;
-        // ❯    󰅒
+            case ["prompt", ..]:
+            {
+                var state = Arguments.Parse(args.AsSpan(1));
 
-        var processName = Environment.ProcessPath;
+                Console.OutputEncoding = Encoding.UTF8;
 
-        Console.WriteLine(
-            $@"
-Write-Host 'Setting prompt...';
+                AnsiConsole.Console.Profile.Width = state.TerminalWidth + 10;
+                AnsiConsole.Console.Profile.Encoding = Encoding.UTF8;
+                AnsiConsole.Console.Profile.Capabilities.Ansi = true;
+                AnsiConsole.Console.Profile.Capabilities.Links = true;
+                AnsiConsole.Console.Profile.Capabilities.Unicode = true;
+                AnsiConsole.Console.Profile.Capabilities.ColorSystem = ColorSystem.TrueColor;
+                AnsiConsole.Console.Profile.Capabilities.Interactive = false;
+                AnsiConsole.Console.Profile.Capabilities.Legacy = false;
 
-# Create a new dynamic module so we don't pollute the global namespace with our functions and variables
-$null = New-Module lucas-prompt {{
+                if (Settings.Debug)
+                {
+                    AnsiConsole.Foreground = Color.Yellow;
+                    AnsiConsole.WriteLine(@$"Literal arguments: ""{string.Join(" ", args)}""");
+                    AnsiConsole.WriteLine($"Parsed arguments: {state}");
+                    AnsiConsole.ResetColors();
+                }
 
-    function Invoke-Native {{
-        param($Executable, $Arguments)
+                // Console.WriteLine($"{pathSegment}{gitSegment}{fillerSegment}{durationSegment}{dateTimeSegment}");
+                // Console.WriteLine($"{osSegment}{shellSegment}{promptSegment}");
 
-        $startInfo = New-Object System.Diagnostics.ProcessStartInfo -ArgumentList $Executable -Property @{{
-            StandardOutputEncoding = [System.Text.Encoding]::UTF8;
-            RedirectStandardOutput = $true;
-            RedirectStandardError = $true;
-            CreateNoWindow = $true;
-            UseShellExecute = $false;
-            WorkingDirectory = $PWD.ProviderPath;
-        }};
+                var spaceSegment = new StringSegment(" ");
+                var newLineSegment = new NewLineSegment();
+                var pathSegment = new PathSegment();
+                var gitSegment = new GitSegment();
+                var lastCommandDurationSegment = new LastCommandDurationSegment(state.LastCommandDurationMs, Settings.LastCommandDurationThresholdMs);
+                var dateTimeSegment = new DateTimeSegment();
+                var osSegment = new OsSegment();
+                var shellSegment = new ShellSegment("pwsh");
+                var promptSegment = new PromptSegment(Settings.Prompt, state.LastCommandState);
 
-        # requires PowerShell 6+ (or 6.1+)
-        foreach ($arg in $Arguments) {{
-            $startInfo.ArgumentList.Add($arg);
-        }}
+                var fillerWidth = state.TerminalWidth - pathSegment.UnformattedLength - gitSegment.UnformattedLength - lastCommandDurationSegment.UnformattedLength - dateTimeSegment.UnformattedLength - 5;
+                var fillerSegment = new FillerSegment(fillerWidth);
 
-        $process = [System.Diagnostics.Process]::Start($startInfo)
+                var line1 = new ISegment[]
+                            {
+                                newLineSegment,
 
-        # Read the output and error streams asynchronously
-        # Avoids potential deadlocks when the child process fills one of the buffers
-        # https://docs.microsoft.com/en-us/dotnet/api/system.diagnostics.process.standardoutput?view=net-6.0#remarks
-        $stdout = $process.StandardOutput.ReadToEndAsync()
-        $stderr = $process.StandardError.ReadToEndAsync()
-        [System.Threading.Tasks.Task]::WaitAll(@($stdout, $stderr))
+                                spaceSegment,
+                                pathSegment,
 
-        # stderr isn't displayed with this style of invocation
-        # Manually write it to console
-        if ($stderr.Result.Trim() -ne '') {{
-            # Write-Error doesn't work here
-            $host.ui.WriteErrorLine($stderr.Result)
-        }}
+                                spaceSegment,
+                                gitSegment,
 
-        $stdout.Result;
-    }}
+                                fillerSegment,
 
-    function Get-Hyperlink {{
-        param(
-            [Parameter(Mandatory, ValueFromPipeline = $True)]
-            [string]$uri,
-            [Parameter(ValueFromPipeline = $True)]
-            [string]$name
-        )
+                                spaceSegment,
+                                lastCommandDurationSegment,
 
-        if ("""" -eq $name) {{
-            # if name not set, uri is used as the name of the hyperlink
-            $name = $uri
-        }}
+                                spaceSegment,
+                                dateTimeSegment,
+                            };
 
-        # if ($null -ne $env:WSL_DISTRO_NAME) {{
-        #     # wsl conversion if needed
-        #     $uri = &wslpath -m $uri
-        # }}
+                var line2 = new ISegment[]
+                            {
+                                newLineSegment,
 
-        # return an ANSI formatted hyperlink
-        $esc = [char]27
-        return ""$esc]8;;$uri$esc\$name$esc]8;;$esc\""
-    }}
+                                spaceSegment,
+                                osSegment,
 
-    function global:Prompt {{
-        $origDollarQuestion = $global:?
-        $origLastExitCode = $global:LASTEXITCODE
+                                spaceSegment,
+                                shellSegment,
 
-        $arguments = @(
-            ""prompt""
-            ""--terminal-width=$($Host.UI.RawUI.WindowSize.Width)"",
-            ""--last-command-state=$origDollarQuestion"",
-            ""--last-command-duration=$((Get-History -Count 1).Duration.TotalMilliseconds)""
-        )
+                                spaceSegment,
+                                promptSegment,
+                                spaceSegment,
+                            };
 
-        # Invoke <Prompt>
-        $promptText = Invoke-Native -Executable '{processName}' -Arguments $arguments
+                var promptBuilder = ZString.CreateStringBuilder();
 
-        # notify PSReadLine of a multiline prompt
-        Set-PSReadLineOption -ExtraPromptLineCount (($promptText | Measure-Object -Line).Lines - 1)
+                try
+                {
+                    CombineSegments(ref promptBuilder, line1, state.TerminalWidth);
+                    CombineSegments(ref promptBuilder, line2, state.TerminalWidth);
+                    var prompt = promptBuilder.ToString();
 
-        # Return the prompt
-        $promptText
+                    if (Settings.Debug)
+                    {
+                        AnsiConsole.WriteLine(prompt);
+                        AnsiConsole.WriteLine();
+                    }
 
-        # Propagate the original $LASTEXITCODE from before the prompt function was invoked.
-        $global:LASTEXITCODE = $origLastExitCode
+                    AnsiConsole.Markup(prompt);
+                }
+                finally
+                {
+                    promptBuilder.Dispose();
+                }
 
-        # Propagate the original $? automatic variable value from before the prompt function was invoked.
-        #
-        # $? is a read-only or constant variable so we can't directly override it.
-        # In order to propagate up its original boolean value we will take an action
-        # which will produce the desired value.
-        #
-        # This has to be the very last thing that happens in the prompt function
-        # since every PowerShell command sets the $? variable.
-        if ($global:? -ne $origDollarQuestion) {{
-            if ($origDollarQuestion) {{
-                # Simple command which will execute successfully and set $? = True without any other side affects.
-                1+1
-            }} else {{
-                # Write-Error will set $? to False.
-                # ErrorAction Ignore will prevent the error from being added to the $Error collection.
-                Write-Error '' -ErrorAction 'Ignore'
-            }}
-        }}
-    }}
-}}
-");
-
-        break;
+                return;
+            }
+        }
     }
 
-    case ["prompt", ..]:
+    private static void CombineSegments(ref Utf16ValueStringBuilder builder, ISegment[] segments, int width)
     {
-        const string terminalWidthOption = "--terminal-width=";
-        const string lastCommandStateOption = "--last-command-state=";
-        const string lastCommandDurationOption = "--last-command-duration=";
-
-        bool debug = Environment.GetEnvironmentVariable("DEBUG_PROMPT") == "1";
-        int terminalWidth = 0;
-        bool lastCommandState = true;
-        TimeSpan lastCommandDuration = TimeSpan.Zero;
-
-        foreach (string arg in args.AsSpan(1))
+        if (Settings.Debug)
         {
-            if (arg.StartsWith(terminalWidthOption, StringComparison.Ordinal))
+            AnsiConsole.WriteLine();
+
+            foreach (var segment in segments)
             {
-                if (int.TryParse(arg.AsSpan(terminalWidthOption.Length), out var result))
+                if (segment is NewLineSegment)
                 {
-                    terminalWidth = result;
+                    AnsiConsole.MarkupInterpolated(@$"[yellow]{segment.GetType().Name} ({segment.UnformattedLength})[/]");
                 }
-            }
-            else if (arg.StartsWith(lastCommandStateOption, StringComparison.Ordinal))
-            {
-                if (bool.TryParse(arg.AsSpan(lastCommandStateOption.Length), out var result))
+                else
                 {
-                    lastCommandState = result;
+                    AnsiConsole.MarkupInterpolated(@$"[yellow]{segment.GetType().Name} ({segment.UnformattedLength})[/]: ""{segment.ToString()}""");
                 }
-            }
-            else if (arg.StartsWith(lastCommandDurationOption, StringComparison.Ordinal))
-            {
-                if (double.TryParse(arg.AsSpan(lastCommandDurationOption.Length), out var result))
-                {
-                    lastCommandDuration = TimeSpan.FromMilliseconds(result);
-                }
+
+                AnsiConsole.WriteLine();
             }
         }
 
-        var fullPath = Directory.GetCurrentDirectory();
-        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        ReadOnlySpan<char> path;
 
-        if (fullPath.StartsWith(userProfile, StringComparison.OrdinalIgnoreCase))
+        int remainingWidth = width;
+
+        foreach (var segment in segments)
         {
-            Span<char> buffer = stackalloc char[fullPath.Length - userProfile.Length + 1];
-            buffer[0] = '~';
-            fullPath.AsSpan(userProfile.Length).CopyTo(buffer[1..]);
+            if (segment.UnformattedLength > remainingWidth)
+            {
+                break;
+            }
 
-            path = buffer.ToString();
+            segment.Append(ref builder);
+            remainingWidth -= segment.UnformattedLength;
         }
-        else
-        {
-            path = fullPath;
-        }
-
-        Console.OutputEncoding = Encoding.UTF8;
-
-        if (debug)
-        {
-            Console.WriteLine(Color.Yellow);
-            Console.WriteLine($"Arguments = {string.Join(" ", args)}");
-            Console.WriteLine($"terminalWidth = {terminalWidth}");
-            Console.WriteLine($"lastCommandState = {lastCommandState}");
-            Console.WriteLine($"lastCommandDuration = {lastCommandDuration}");
-            Console.WriteLine(Color.Reset);
-        }
-
-        Console.WriteLine(Color.Reset);
-
-        // line 1: path, git ... last command duration, current time
-        var pathString = $" {path}";
-        var pathSegment = $"{Color.Blue}{pathString}{Color.Reset}";
-
-        var gitPath = Path.Combine(fullPath, ".git");
-        var gitBranchName = GitInfo.GetBranchNameFrom(gitPath);
-        string gitString;
-        string gitSegment;
-
-        if (gitBranchName.Length > 0)
-        {
-            gitString = $" in  {gitBranchName}";
-            gitSegment = $"{Color.Magenta}{gitString}{Color.Reset}";
-        }
-        else
-        {
-            gitString = "";
-            gitSegment = "";
-        }
-
-        string durationString = GetDurationString(
-            lastCommandDuration,
-            durationThreshold: 20,
-            durationPrefix: "󰅒 ",
-            force: debug);
-
-        var durationSegment = !string.IsNullOrEmpty(durationString) ?
-                                  $"{Color.Yellow}{durationString}{Color.Reset}" :
-                                  "";
-
-        var timeSegment = DateTime.Now.ToString(" 'at' yyyy-MM-dd h:mm tt");
-
-        var fillerLength = terminalWidth - pathString.Length - gitString.Length - durationString.Length - timeSegment.Length;
-        var fillerSegment = string.Create(fillerLength, fillerLength, (span, _) => span.Fill(' '));
-
-        Console.WriteLine($"{pathSegment}{gitSegment}{fillerSegment}{durationSegment}{timeSegment}");
-
-        // line 2: os, shell, prompt
-        string lastCommandStateColor = lastCommandState ? Color.Green : Color.Red;
-        Console.Write($" pwsh {lastCommandStateColor}❯{Color.Reset} ");
-
-        break;
     }
-}
-
-static string GetDurationString(TimeSpan lastCommandDuration, double durationThreshold, string durationPrefix, bool force)
-{
-    if (lastCommandDuration.TotalMinutes >= 1)
-    {
-        return $"{durationPrefix}{lastCommandDuration:m'm 's's'}";
-    }
-
-    if (lastCommandDuration.TotalSeconds >= 1)
-    {
-        return $"{durationPrefix}{lastCommandDuration.TotalSeconds:0.0}s";
-    }
-
-    if (lastCommandDuration.TotalMilliseconds >= durationThreshold || force)
-    {
-        return $"{durationPrefix}{lastCommandDuration.Milliseconds}ms";
-    }
-
-    return "";
-}
-
-internal static class Color
-{
-    public const string Reset = "\x1b[0m";
-
-    public const string Red = "\x1b[1;31m";
-    public const string Green = "\x1b[1;32m";
-    public const string Yellow = "\x1b[1;33m";
-    public const string Blue = "\x1b[1;34m";
-    public const string Magenta = "\x1b[1;35m";
 }
