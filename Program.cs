@@ -61,7 +61,7 @@ internal static class Program
                 var lastCommandDurationSegment = new LastCommandDurationSegment(state.LastCommandDurationMs, Settings.LastCommandDurationThresholdMs);
                 var dateTimeSegment = new DateTimeSegment();
                 var osSegment = new OsSegment();
-                var shellSegment = new ShellSegment("pwsh");
+                var shellSegment = new StringSegment("pwsh");
                 var promptSegment = new PromptSegment(Settings.Prompt, state.LastCommandState);
 
                 var fillerWidth = state.TerminalWidth - pathSegment.UnformattedLength - gitSegment.UnformattedLength - lastCommandDurationSegment.UnformattedLength - dateTimeSegment.UnformattedLength - 5;
@@ -101,27 +101,27 @@ internal static class Program
                                 spaceSegment,
                             };
 
-                var promptBuilder = ZString.CreateStringBuilder();
+                var promptBuilder = ZString.CreateStringBuilder(notNested: true);
+                string prompt;
 
                 try
                 {
                     CombineSegments(ref promptBuilder, line1, state.TerminalWidth);
                     CombineSegments(ref promptBuilder, line2, state.TerminalWidth);
-                    var prompt = promptBuilder.ToString();
-
-                    if (Settings.Debug)
-                    {
-                        AnsiConsole.WriteLine(prompt);
-                        AnsiConsole.WriteLine();
-                    }
-
-                    AnsiConsole.Markup(prompt);
+                    prompt = promptBuilder.ToString();
                 }
                 finally
                 {
                     promptBuilder.Dispose();
                 }
 
+                if (Settings.Debug)
+                {
+                    AnsiConsole.WriteLine(prompt);
+                    AnsiConsole.WriteLine();
+                }
+
+                AnsiConsole.Markup(prompt);
                 return;
             }
         }

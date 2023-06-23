@@ -2,7 +2,7 @@
 
 namespace Prompt.Modules;
 
-internal sealed class StringSegment : Segment
+internal readonly struct StringSegment : ISegment
 {
     private readonly string _value;
 
@@ -11,9 +11,9 @@ internal sealed class StringSegment : Segment
         _value = value;
     }
 
-    public override int UnformattedLength => _value.Length;
+    public int UnformattedLength => _value.Length;
 
-    public override void Append(ref Utf16ValueStringBuilder sb)
+    public void Append(ref Utf16ValueStringBuilder sb)
     {
         sb.Append(_value);
     }

@@ -2,12 +2,12 @@
 
 namespace Prompt.Modules;
 
-internal sealed class PromptSegment : Segment
+internal readonly struct PromptSegment : ISegment
 {
     private readonly string _prompt;
     private readonly bool _lastCommandState;
 
-    public override int UnformattedLength => _prompt.Length;
+    public int UnformattedLength => _prompt.Length;
 
     public PromptSegment(string prompt, bool lastCommandState)
     {
@@ -15,7 +15,7 @@ internal sealed class PromptSegment : Segment
         _lastCommandState = lastCommandState;
     }
 
-    public override void Append(ref Utf16ValueStringBuilder sb)
+    public void Append(ref Utf16ValueStringBuilder sb)
     {
         sb.Append(_lastCommandState ? "[green]" : "[red]");
         sb.Append(_prompt);

@@ -3,11 +3,11 @@ using Cysharp.Text;
 
 namespace Prompt.Modules;
 
-internal sealed class OsSegment : Segment
+internal readonly struct OsSegment : ISegment
 {
-    public override int UnformattedLength => GetOsString().Length;
+    public int UnformattedLength => GetOsString().Length;
 
-    public override void Append(ref Utf16ValueStringBuilder sb)
+    public void Append(ref Utf16ValueStringBuilder sb)
     {
         sb.Append(GetOsString());
     }

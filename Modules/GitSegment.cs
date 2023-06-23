@@ -3,7 +3,7 @@ using Cysharp.Text;
 
 namespace Prompt.Modules;
 
-internal sealed class GitSegment : Segment
+internal readonly struct GitSegment : ISegment
 {
     private const string Prefix = "in  ";
 
@@ -15,9 +15,9 @@ internal sealed class GitSegment : Segment
         _branchName = GitInfo.GetBranchName(currentDirectory);
     }
 
-    public override int UnformattedLength => _branchName.Length + Prefix.Length;
+    public  int UnformattedLength => _branchName.Length + Prefix.Length;
 
-    public override void Append(ref Utf16ValueStringBuilder sb)
+    public  void Append(ref Utf16ValueStringBuilder sb)
     {
         if (_branchName.Length == 0)
         {

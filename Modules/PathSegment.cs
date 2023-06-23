@@ -4,7 +4,7 @@ using Cysharp.Text;
 
 namespace Prompt.Modules;
 
-internal sealed class PathSegment : Segment
+internal readonly struct PathSegment : ISegment
 {
     private readonly string _currentDirectory;
     private readonly string _userProfileDirectory;
@@ -17,11 +17,11 @@ internal sealed class PathSegment : Segment
         _inUserHome = _currentDirectory.StartsWith(_userProfileDirectory, StringComparison.OrdinalIgnoreCase);
     }
 
-    public override int UnformattedLength => _inUserHome ?
+    public int UnformattedLength => _inUserHome ?
                                                  _currentDirectory.Length - _userProfileDirectory.Length + 3 :
                                                  _currentDirectory.Length + 2;
 
-    public override void Append(ref Utf16ValueStringBuilder sb)
+    public void Append(ref Utf16ValueStringBuilder sb)
     {
         sb.Append("[blue] ");
 

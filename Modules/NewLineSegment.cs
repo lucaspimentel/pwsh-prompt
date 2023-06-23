@@ -2,13 +2,13 @@
 
 namespace Prompt.Modules;
 
-internal sealed class NewLineSegment : Segment
+internal readonly struct NewLineSegment : ISegment
 {
     private const string Value = "\r\n";
 
-    public override int UnformattedLength => 0;
+    public int UnformattedLength => 0;
 
-    public override void Append(ref Utf16ValueStringBuilder sb)
+    public void Append(ref Utf16ValueStringBuilder sb)
     {
         sb.Append(Value);
     }

@@ -2,13 +2,13 @@
 
 namespace Prompt.Modules;
 
-internal sealed class LastCommandDurationSegment : Segment
+internal readonly struct LastCommandDurationSegment : ISegment
 {
     private readonly int _lastCommandDurationMs;
     private readonly int _thresholdMs;
     private readonly string _unformattedString;
 
-    public override int UnformattedLength => string.IsNullOrEmpty(_unformattedString) ? 0 : _unformattedString.Length - 1;
+    public int UnformattedLength => string.IsNullOrEmpty(_unformattedString) ? 0 : _unformattedString.Length - 1;
 
     public LastCommandDurationSegment(int lastCommandDurationMs, int thresholdMs)
     {
@@ -21,7 +21,7 @@ internal sealed class LastCommandDurationSegment : Segment
             return;
         }
 
-        var builder = ZString.CreateStringBuilder();
+        var builder = ZString.CreateStringBuilder(notNested: true);
 
         try
         {
@@ -34,7 +34,7 @@ internal sealed class LastCommandDurationSegment : Segment
         }
     }
 
-    public override void Append(ref Utf16ValueStringBuilder sb)
+    public void Append(ref Utf16ValueStringBuilder sb)
     {
         if (_lastCommandDurationMs < _thresholdMs)
         {
