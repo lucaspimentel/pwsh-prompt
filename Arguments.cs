@@ -40,6 +40,18 @@ public readonly record struct Arguments(int TerminalWidth, int LastCommandDurati
             }
         }
 
+        if (terminalWidth == 0)
+        {
+            try
+            {
+                terminalWidth = Console.WindowWidth;
+            }
+            catch
+            {
+                terminalWidth = 80;
+            }
+        }
+
         return new Arguments(terminalWidth, lastCommandDurationMs, lastCommandState);
     }
 }
