@@ -92,4 +92,9 @@ internal readonly struct LastCommandDurationSegment : ISegment
                 break;
         }
     }
+
+    public override string ToString()
+    {
+        return SegmentUtils.ToString(this);
+    }
 }

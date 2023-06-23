@@ -5,11 +5,17 @@ namespace Prompt.Modules;
 
 internal readonly struct OsSegment : ISegment
 {
+    private readonly string _value = GetOsString();
+
+    public OsSegment()
+    {
+    }
+
     public int UnformattedLength => GetOsString().Length;
 
     public void Append(ref ValueStringBuilder sb)
     {
-        sb.Append(GetOsString());
+        sb.Append(_value);
     }
 
     private static string GetOsString()
@@ -30,5 +36,10 @@ internal readonly struct OsSegment : ISegment
         }
 
         return "Unknown OS";
+    }
+
+    public override string ToString()
+    {
+        return _value;
     }
 }

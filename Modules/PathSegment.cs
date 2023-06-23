@@ -37,4 +37,9 @@ internal readonly struct PathSegment : ISegment
 
         sb.Append("[/]");
     }
+
+    public override string ToString()
+    {
+        return SegmentUtils.ToString(this);
+    }
 }

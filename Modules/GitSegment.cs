@@ -29,4 +29,9 @@ internal readonly struct GitSegment : ISegment
         sb.Append(_branchName);
         sb.Append("[/]");
     }
+
+    public override string ToString()
+    {
+        return SegmentUtils.ToString(this);
+    }
 }

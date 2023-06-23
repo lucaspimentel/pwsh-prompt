@@ -17,4 +17,9 @@ internal readonly struct StringSegment : ISegment
     {
         sb.Append(_value);
     }
+
+    public override string ToString()
+    {
+        return _value;
+    }
 }

@@ -66,13 +66,17 @@ internal static partial class GitInfo
 
     private static string? FindGitFolder(string path)
     {
+        if (Settings.Debug)
+        {
+            AnsiConsole.WriteLine();
+        }
+
         while (true)
         {
             string gitPath = Path.Combine(path, ".git");
 
             if (Settings.Debug)
             {
-                AnsiConsole.WriteLine();
                 AnsiConsole.MarkupLineInterpolated($"[yellow]Git: checking {gitPath}[/]");
             }
 

@@ -18,4 +18,9 @@ internal readonly struct DateTimeSegment : ISegment
         sb.Append("at ");
         sb.AppendSpanFormattable(_now, "yyyy-mm-dd hh:mm tt");
     }
+
+    public override string ToString()
+    {
+        return SegmentUtils.ToString(this);
+    }
 }

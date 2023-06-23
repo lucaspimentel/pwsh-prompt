@@ -83,10 +83,7 @@ internal static class Program
 
                                 spaceSegment,
                                 dateTimeSegment,
-                            };
 
-                var line2 = new ISegment[]
-                            {
                                 newLineSegment,
 
                                 spaceSegment,
@@ -108,7 +105,6 @@ internal static class Program
                 try
                 {
                     CombineSegments(ref promptBuilder, line1, state.TerminalWidth);
-                    CombineSegments(ref promptBuilder, line2, state.TerminalWidth);
                     prompt = promptBuilder.ToString();
                 }
                 finally
@@ -153,6 +149,11 @@ internal static class Program
 
         foreach (var segment in segments)
         {
+            if (segment is NewLineSegment)
+            {
+                remainingWidth = width;
+            }
+
             if (segment.UnformattedLength > remainingWidth)
             {
                 break;

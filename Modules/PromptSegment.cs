@@ -21,4 +21,9 @@ internal readonly struct PromptSegment : ISegment
         sb.Append(_prompt);
         sb.Append("[/]");
     }
+
+    public override string ToString()
+    {
+        return SegmentUtils.ToString(this);
+    }
 }
