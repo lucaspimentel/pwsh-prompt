@@ -33,7 +33,7 @@ internal static class Program
 
                 Console.OutputEncoding = Encoding.UTF8;
 
-                AnsiConsole.Console.Profile.Width = state.TerminalWidth + 10;
+                AnsiConsole.Console.Profile.Width = state.TerminalWidth * 2;
                 AnsiConsole.Console.Profile.Encoding = Encoding.UTF8;
                 AnsiConsole.Console.Profile.Capabilities.Ansi = true;
                 AnsiConsole.Console.Profile.Capabilities.Links = true;
@@ -64,7 +64,7 @@ internal static class Program
                 var promptSegment = new PromptSegment(Settings.Prompt, state.LastCommandState);
 
                 var fillerWidth = state.TerminalWidth - pathSegment.UnformattedLength - gitSegment.UnformattedLength - lastCommandDurationSegment.UnformattedLength - dateTimeSegment.UnformattedLength - 5;
-                var fillerSegment = new StringSegment(new string(' ', fillerWidth));
+                var fillerSegment = new StringSegment(fillerWidth <= 0 ? "" : new string(' ', fillerWidth));
 
                 var line1 = new ISegment[]
                             {
@@ -115,7 +115,6 @@ internal static class Program
                 if (Settings.Debug)
                 {
                     AnsiConsole.WriteLine(prompt);
-                    AnsiConsole.WriteLine();
                 }
 
                 AnsiConsole.Markup(prompt);
@@ -146,21 +145,27 @@ internal static class Program
         }
 
         int remainingWidth = width;
+        bool lineFull = false;
 
         foreach (var segment in segments)
         {
             if (segment is NewLineSegment)
             {
+                // reset for next line
                 remainingWidth = width;
+                lineFull = false;
             }
 
             if (segment.UnformattedLength > remainingWidth)
             {
-                break;
+                lineFull = true;
             }
 
-            segment.Append(ref builder);
-            remainingWidth -= segment.UnformattedLength;
+            if (!lineFull)
+            {
+                segment.Append(ref builder);
+                remainingWidth -= segment.UnformattedLength;
+            }
         }
     }
 }
