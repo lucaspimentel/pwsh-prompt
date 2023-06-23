@@ -1,5 +1,5 @@
 ﻿using System.Runtime.InteropServices;
-using Cysharp.Text;
+using System.Text;
 
 namespace Prompt.Modules;
 
@@ -7,7 +7,7 @@ internal readonly struct OsSegment : ISegment
 {
     public int UnformattedLength => GetOsString().Length;
 
-    public void Append(ref Utf16ValueStringBuilder sb)
+    public void Append(ref ValueStringBuilder sb)
     {
         sb.Append(GetOsString());
     }

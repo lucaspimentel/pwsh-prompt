@@ -1,5 +1,5 @@
 ﻿using System;
-using Cysharp.Text;
+using System.Text;
 
 namespace Prompt.Modules;
 
@@ -13,9 +13,9 @@ internal readonly struct DateTimeSegment : ISegment
 
     public int UnformattedLength => _now.Hour < 10 ? 21 : 22;
 
-    public void Append(ref Utf16ValueStringBuilder sb)
+    public void Append(ref ValueStringBuilder sb)
     {
         sb.Append("at ");
-        sb.Append(_now, "yyyy-mm-dd hh:mm tt");
+        sb.AppendSpanFormattable(_now, "yyyy-mm-dd hh:mm tt");
     }
 }

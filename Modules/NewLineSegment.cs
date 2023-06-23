@@ -1,4 +1,4 @@
-﻿using Cysharp.Text;
+﻿using System.Text;
 
 namespace Prompt.Modules;
 
@@ -8,7 +8,7 @@ internal readonly struct NewLineSegment : ISegment
 
     public int UnformattedLength => 0;
 
-    public void Append(ref Utf16ValueStringBuilder sb)
+    public void Append(ref ValueStringBuilder sb)
     {
         sb.Append(Value);
     }

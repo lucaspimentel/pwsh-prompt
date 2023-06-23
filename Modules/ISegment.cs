@@ -1,4 +1,5 @@
-﻿using Cysharp.Text;
+﻿using System;
+using System.Text;
 
 namespace Prompt.Modules;
 
@@ -6,11 +7,12 @@ internal interface ISegment
 {
     int UnformattedLength { get; }
 
-    void Append(ref Utf16ValueStringBuilder sb);
+    void Append(ref ValueStringBuilder sb);
 
     string? ToString()
     {
-        var builder = ZString.CreateStringBuilder(notNested: false);
+        Span<char> buffer = stackalloc char[128];
+        var builder = new ValueStringBuilder(buffer);
 
         try
         {

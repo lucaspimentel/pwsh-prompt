@@ -1,5 +1,5 @@
 ﻿using System.IO;
-using Cysharp.Text;
+using System.Text;
 
 namespace Prompt.Modules;
 
@@ -17,7 +17,7 @@ internal readonly struct GitSegment : ISegment
 
     public  int UnformattedLength => _branchName.Length + Prefix.Length;
 
-    public  void Append(ref Utf16ValueStringBuilder sb)
+    public  void Append(ref ValueStringBuilder sb)
     {
         if (_branchName.Length == 0)
         {

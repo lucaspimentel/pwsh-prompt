@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Text;
-using Cysharp.Text;
 using Prompt.Modules;
 using Spectre.Console;
 
@@ -65,7 +64,7 @@ internal static class Program
                 var promptSegment = new PromptSegment(Settings.Prompt, state.LastCommandState);
 
                 var fillerWidth = state.TerminalWidth - pathSegment.UnformattedLength - gitSegment.UnformattedLength - lastCommandDurationSegment.UnformattedLength - dateTimeSegment.UnformattedLength - 5;
-                var fillerSegment = new FillerSegment(fillerWidth);
+                var fillerSegment = new StringSegment(new string(' ', fillerWidth));
 
                 var line1 = new ISegment[]
                             {
@@ -101,7 +100,9 @@ internal static class Program
                                 spaceSegment,
                             };
 
-                var promptBuilder = ZString.CreateStringBuilder(notNested: true);
+                Span<char> buffer = stackalloc char[1024];
+                var promptBuilder = new ValueStringBuilder(buffer);
+
                 string prompt;
 
                 try
@@ -127,7 +128,7 @@ internal static class Program
         }
     }
 
-    private static void CombineSegments(ref Utf16ValueStringBuilder builder, ISegment[] segments, int width)
+    private static void CombineSegments(ref ValueStringBuilder builder, ISegment[] segments, int width)
     {
         if (Settings.Debug)
         {
@@ -147,7 +148,6 @@ internal static class Program
                 AnsiConsole.WriteLine();
             }
         }
-
 
         int remainingWidth = width;
 

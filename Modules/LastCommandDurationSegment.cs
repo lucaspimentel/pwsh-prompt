@@ -1,4 +1,5 @@
-﻿using Cysharp.Text;
+﻿using System;
+using System.Text;
 
 namespace Prompt.Modules;
 
@@ -21,11 +22,12 @@ internal readonly struct LastCommandDurationSegment : ISegment
             return;
         }
 
-        var builder = ZString.CreateStringBuilder(notNested: true);
+        Span<char> buffer = stackalloc char[128];
+        var builder = new ValueStringBuilder(buffer);
 
         try
         {
-            AppendNoColors(ref builder);
+            AppendWithoutColors(ref builder);
             _unformattedString = builder.ToString();
         }
         finally
@@ -34,7 +36,7 @@ internal readonly struct LastCommandDurationSegment : ISegment
         }
     }
 
-    public void Append(ref Utf16ValueStringBuilder sb)
+    public void Append(ref ValueStringBuilder sb)
     {
         if (_lastCommandDurationMs < _thresholdMs)
         {
@@ -46,7 +48,7 @@ internal readonly struct LastCommandDurationSegment : ISegment
         sb.Append("[/]");
     }
 
-    private void AppendNoColors(ref Utf16ValueStringBuilder sb)
+    private void AppendWithoutColors(ref ValueStringBuilder sb)
     {
         if (_lastCommandDurationMs < _thresholdMs)
         {
@@ -64,28 +66,28 @@ internal readonly struct LastCommandDurationSegment : ISegment
 
                 if (minutes >= 1000)
                 {
-                    sb.Append(minutes, "N");
+                    sb.AppendSpanFormattable(minutes, "N");
                 }
                 else
                 {
-                    sb.Append(minutes);
+                    sb.AppendSpanFormattable(minutes);
                 }
 
                 sb.Append("m ");
-                sb.Append(seconds);
+                sb.AppendSpanFormattable(seconds);
                 sb.Append('s');
                 break;
 
             case >= 1_000:
                 // 59.9s
                 double totalSeconds = (_lastCommandDurationMs % 60_000) / 1_000.0;
-                sb.Append(totalSeconds, "0.#");
+                sb.AppendSpanFormattable(totalSeconds, "0.#");
                 sb.Append('s');
                 break;
 
             default:
                 // 999ms
-                sb.Append(_lastCommandDurationMs);
+                sb.AppendSpanFormattable(_lastCommandDurationMs);
                 sb.Append("ms");
                 break;
         }

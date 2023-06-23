@@ -1,6 +1,6 @@
 ﻿using System;
 using System.IO;
-using Cysharp.Text;
+using System.Text;
 
 namespace Prompt.Modules;
 
@@ -21,7 +21,7 @@ internal readonly struct PathSegment : ISegment
                                                  _currentDirectory.Length - _userProfileDirectory.Length + 3 :
                                                  _currentDirectory.Length + 2;
 
-    public void Append(ref Utf16ValueStringBuilder sb)
+    public void Append(ref ValueStringBuilder sb)
     {
         sb.Append("[blue] ");
 

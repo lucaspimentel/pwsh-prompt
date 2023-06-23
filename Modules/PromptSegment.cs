@@ -1,4 +1,4 @@
-﻿using Cysharp.Text;
+﻿using System.Text;
 
 namespace Prompt.Modules;
 
@@ -15,7 +15,7 @@ internal readonly struct PromptSegment : ISegment
         _lastCommandState = lastCommandState;
     }
 
-    public void Append(ref Utf16ValueStringBuilder sb)
+    public void Append(ref ValueStringBuilder sb)
     {
         sb.Append(_lastCommandState ? "[green]" : "[red]");
         sb.Append(_prompt);
