@@ -51,29 +51,6 @@ $null = New-Module lucas-prompt {{
         $stdout.Result;
     }}
 
-    function Get-Hyperlink {{
-        param(
-            [Parameter(Mandatory, ValueFromPipeline = $True)]
-            [string]$uri,
-            [Parameter(ValueFromPipeline = $True)]
-            [string]$name
-        )
-
-        if ("""" -eq $name) {{
-            # if name not set, uri is used as the name of the hyperlink
-            $name = $uri
-        }}
-
-        # if ($null -ne $env:WSL_DISTRO_NAME) {{
-        #     # wsl conversion if needed
-        #     $uri = &wslpath -m $uri
-        # }}
-
-        # return an ANSI formatted hyperlink
-        $esc = [char]27
-        return ""$esc]8;;$uri$esc\$name$esc]8;;$esc\""
-    }}
-
     function global:Prompt {{
         $origDollarQuestion = $global:?
         $origLastExitCode = $global:LASTEXITCODE
@@ -82,6 +59,7 @@ $null = New-Module lucas-prompt {{
             ""prompt"",
             ""--terminal-width=$($Host.UI.RawUI.WindowSize.Width)"",
             ""--current-directory=$($PWD.Path)"",
+            ""--current-directory-provider=$($PWD.Provider)"",
             ""--last-command-state=$origDollarQuestion"",
             ""--last-command-duration=$( ([int](Get-History -Count 1).Duration.TotalMilliseconds).ToString([System.Globalization.CultureInfo]::InvariantCulture) )""
         )
