@@ -9,7 +9,7 @@ internal readonly struct LastCommandDurationSegment : ISegment
     private readonly int _thresholdMs;
     private readonly string _unformattedString;
 
-    public int UnformattedLength => string.IsNullOrEmpty(_unformattedString) ? 0 : _unformattedString.Length - 1;
+    public int UnformattedLength => _unformattedString == null ? 0 : _unformattedString.Length;
 
     public LastCommandDurationSegment(int lastCommandDurationMs, int thresholdMs)
     {
@@ -22,7 +22,7 @@ internal readonly struct LastCommandDurationSegment : ISegment
             return;
         }
 
-        Span<char> buffer = stackalloc char[128];
+        Span<char> buffer = stackalloc char[32];
         var builder = new ValueStringBuilder(buffer);
 
         try
@@ -55,7 +55,7 @@ internal readonly struct LastCommandDurationSegment : ISegment
             return;
         }
 
-        sb.Append("󰥕 ");
+        sb.Append(" 󰥕 ");
 
         switch (_lastCommandDurationMs)
         {

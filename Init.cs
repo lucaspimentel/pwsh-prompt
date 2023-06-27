@@ -11,13 +11,20 @@ $null = New-Module lucas-prompt {{
     function Invoke-Native {{
         param($Executable, $Arguments)
 
+        if (Test-Path $PWD.ProviderPath)
+        {{
+            $workingDirectory = $PWD.ProviderPath;
+        }} else {{
+            $workingDirectory = $UserProfile;
+        }}
+
         $startInfo = New-Object System.Diagnostics.ProcessStartInfo -ArgumentList $Executable -Property @{{
             StandardOutputEncoding = [System.Text.Encoding]::UTF8;
             RedirectStandardOutput = $true;
             RedirectStandardError = $true;
             CreateNoWindow = $true;
             UseShellExecute = $false;
-            WorkingDirectory = $PWD.ProviderPath;
+            WorkingDirectory = $workingDirectory;
         }};
 
         # requires PowerShell 6+ (or 6.1+)
@@ -74,6 +81,7 @@ $null = New-Module lucas-prompt {{
         $arguments = @(
             ""prompt"",
             ""--terminal-width=$($Host.UI.RawUI.WindowSize.Width)"",
+            ""--current-directory=$($PWD.Path)"",
             ""--last-command-state=$origDollarQuestion"",
             ""--last-command-duration=$( ([int](Get-History -Count 1).Duration.TotalMilliseconds).ToString([System.Globalization.CultureInfo]::InvariantCulture) )""
         )

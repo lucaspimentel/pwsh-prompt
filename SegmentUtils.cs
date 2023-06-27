@@ -8,7 +8,7 @@ internal static class SegmentUtils
 {
     public static string ToString<TSegment>(TSegment segment) where TSegment : ISegment
     {
-        Span<char> buffer = stackalloc char[128];
+        Span<char> buffer = stackalloc char[256];
         var builder = new ValueStringBuilder(buffer);
 
         try

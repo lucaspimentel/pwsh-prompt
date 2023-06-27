@@ -3,15 +3,17 @@ using System.Globalization;
 
 namespace Prompt;
 
-public readonly record struct Arguments(int TerminalWidth, int LastCommandDurationMs, bool LastCommandState)
+public readonly record struct Arguments(int TerminalWidth, string CurrentDirectory, int LastCommandDurationMs, bool LastCommandState)
 {
     private const string TerminalWidthOption = "--terminal-width=";
+    private const string CurrentDirectoryOption = "--current-directory=";
     private const string LastCommandDurationOption = "--last-command-duration=";
     private const string LastCommandStateOption = "--last-command-state=";
 
     public static Arguments Parse(Span<string> args)
     {
         int terminalWidth = 0;
+        string currentDirectory = "";
         int lastCommandDurationMs = 0;
         bool lastCommandState = true;
 
@@ -23,6 +25,10 @@ public readonly record struct Arguments(int TerminalWidth, int LastCommandDurati
                 {
                     terminalWidth = result;
                 }
+            }
+            else if (arg.StartsWith(CurrentDirectoryOption, StringComparison.Ordinal))
+            {
+                currentDirectory = arg[CurrentDirectoryOption.Length..];
             }
             else if (arg.StartsWith(LastCommandDurationOption, StringComparison.Ordinal))
             {
@@ -52,6 +58,6 @@ public readonly record struct Arguments(int TerminalWidth, int LastCommandDurati
             }
         }
 
-        return new Arguments(terminalWidth, lastCommandDurationMs, lastCommandState);
+        return new Arguments(terminalWidth, currentDirectory, lastCommandDurationMs, lastCommandState);
     }
 }

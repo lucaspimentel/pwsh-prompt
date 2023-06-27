@@ -47,6 +47,7 @@ internal static class Program
                     AnsiConsole.Foreground = Color.Yellow;
                     AnsiConsole.WriteLine(@$"Literal arguments: ""{string.Join(" ", args)}""");
                     AnsiConsole.WriteLine($"Parsed arguments: {state}");
+                    AnsiConsole.WriteLine($"Current directory: {Environment.CurrentDirectory}");
                     AnsiConsole.ResetColors();
                 }
 
@@ -55,7 +56,7 @@ internal static class Program
 
                 // var spaceSegment = new StringSegment(" ");
                 var newLineSegment = new NewLineSegment();
-                var pathSegment = new PathSegment();
+                var pathSegment = new PathSegment(state.CurrentDirectory);
                 var gitSegment = new GitSegment();
                 var lastCommandDurationSegment = new LastCommandDurationSegment(state.LastCommandDurationMs, Settings.LastCommandDurationThresholdMs);
                 var dateTimeSegment = new DateTimeSegment();
@@ -63,7 +64,7 @@ internal static class Program
                 var shellSegment = new StringSegment(" pwsh");
                 var promptSegment = new PromptSegment(Settings.Prompt, state.LastCommandState);
 
-                var fillerWidth = state.TerminalWidth - pathSegment.UnformattedLength - gitSegment.UnformattedLength - lastCommandDurationSegment.UnformattedLength - dateTimeSegment.UnformattedLength - 1;
+                var fillerWidth = state.TerminalWidth - pathSegment.UnformattedLength - gitSegment.UnformattedLength - lastCommandDurationSegment.UnformattedLength - dateTimeSegment.UnformattedLength - 2;
                 var fillerSegment = new StringSegment(fillerWidth <= 0 ? "" : new string(' ', fillerWidth));
 
                 var line1 = new ISegment[]
@@ -125,7 +126,7 @@ internal static class Program
                 }
                 else
                 {
-                    AnsiConsole.MarkupInterpolated(@$"[yellow]{segment.GetType().Name} ({segment.UnformattedLength})[/]: ""{segment.ToString()}""");
+                    AnsiConsole.MarkupInterpolated(@$"[yellow]{segment.GetType().Name} ({segment.UnformattedLength})[/]: ""{segment}""");
                 }
 
                 AnsiConsole.WriteLine();

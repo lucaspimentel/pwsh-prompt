@@ -9,29 +9,45 @@ internal readonly struct PathSegment : ISegment
     private const string Prefix = "  ";
 
     private readonly string _currentDirectory;
-    private readonly string _userProfileDirectory;
-    private readonly bool _inUserHome;
+    private readonly int _userProfileDirectoryLength;
 
-    public PathSegment()
+    public PathSegment(string currentDirectory)
     {
-        _currentDirectory = Directory.GetCurrentDirectory();
-        _userProfileDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        _inUserHome = _currentDirectory.StartsWith(_userProfileDirectory, StringComparison.OrdinalIgnoreCase);
+        string userProfileDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        bool inUserHome = currentDirectory.StartsWith(userProfileDirectory, StringComparison.OrdinalIgnoreCase);
+
+        _currentDirectory = currentDirectory;
+        _userProfileDirectoryLength = inUserHome ? userProfileDirectory.Length : 0;
     }
 
-    public int UnformattedLength => _inUserHome ?
-                                        Prefix.Length + _currentDirectory.Length - _userProfileDirectory.Length + 1 :
+    public int UnformattedLength => _userProfileDirectoryLength > 0 ?
+                                        Prefix.Length + _currentDirectory.Length - _userProfileDirectoryLength + 1 :
                                         Prefix.Length + _currentDirectory.Length;
 
     public void Append(ref ValueStringBuilder sb)
     {
-        sb.Append("[blue]");
-        sb.Append(Prefix);
+        if (Path.Exists(_currentDirectory))
+        {
+            sb.Append("[blue]");
+            sb.Append(Prefix);
+        }
+        else if (_currentDirectory.Equals("Env:\\", StringComparison.OrdinalIgnoreCase))
+        {
+            sb.Append("[yellow]");
+            sb.Append(Prefix);
+            sb.Append("[/][blue]");
+        }
+        else
+        {
+            sb.Append("[red]");
+            sb.Append(Prefix);
+            sb.Append("[/][blue]");
+        }
 
-        if (_inUserHome)
+        if (_userProfileDirectoryLength > 0)
         {
             sb.Append('~');
-            sb.Append(_currentDirectory.AsSpan(_userProfileDirectory.Length));
+            sb.Append(_currentDirectory.AsSpan(_userProfileDirectoryLength));
         }
         else
         {
