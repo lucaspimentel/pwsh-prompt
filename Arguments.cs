@@ -1,19 +1,22 @@
 ﻿using System;
 using System.Globalization;
+using Microsoft.Extensions.Primitives;
 
 namespace Prompt;
 
-public readonly record struct Arguments(int TerminalWidth, string CurrentDirectory, int LastCommandDurationMs, bool LastCommandState)
+public readonly record struct Arguments(int TerminalWidth, StringSegment CurrentDirectory, StringSegment CurrentDirectoryProvider, int LastCommandDurationMs, bool LastCommandState)
 {
     private const string TerminalWidthOption = "--terminal-width=";
     private const string CurrentDirectoryOption = "--current-directory=";
+    private const string CurrentDirectoryProviderOption = "--current-directory-provider=";
     private const string LastCommandDurationOption = "--last-command-duration=";
     private const string LastCommandStateOption = "--last-command-state=";
 
     public static Arguments Parse(Span<string> args)
     {
         int terminalWidth = 0;
-        string currentDirectory = "";
+        StringSegment currentDirectory = "";
+        StringSegment currentDirectoryProvider = "";
         int lastCommandDurationMs = 0;
         bool lastCommandState = true;
 
@@ -28,7 +31,11 @@ public readonly record struct Arguments(int TerminalWidth, string CurrentDirecto
             }
             else if (arg.StartsWith(CurrentDirectoryOption, StringComparison.Ordinal))
             {
-                currentDirectory = arg[CurrentDirectoryOption.Length..];
+                currentDirectory = new StringSegment(arg, CurrentDirectoryOption.Length, arg.Length - CurrentDirectoryOption.Length);
+            }
+            else if (arg.StartsWith(CurrentDirectoryProviderOption, StringComparison.Ordinal))
+            {
+                currentDirectoryProvider = new StringSegment(arg, CurrentDirectoryProviderOption.Length, arg.Length - CurrentDirectoryProviderOption.Length);
             }
             else if (arg.StartsWith(LastCommandDurationOption, StringComparison.Ordinal))
             {
@@ -58,6 +65,16 @@ public readonly record struct Arguments(int TerminalWidth, string CurrentDirecto
             }
         }
 
-        return new Arguments(terminalWidth, currentDirectory, lastCommandDurationMs, lastCommandState);
+        if (currentDirectory.Length == 0)
+        {
+            currentDirectory = Environment.CurrentDirectory;
+        }
+
+        if (currentDirectoryProvider.Length == 0)
+        {
+            currentDirectoryProvider = @"Microsoft.PowerShell.Core\FileSystem";
+        }
+
+        return new Arguments(terminalWidth, currentDirectory, currentDirectoryProvider, lastCommandDurationMs, lastCommandState);
     }
 }

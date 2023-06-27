@@ -9,51 +9,60 @@ internal readonly struct PathSegment : ISegment
     private const string Prefix = "  ";
 
     private readonly string _currentDirectory;
-    private readonly int _userProfileDirectoryLength;
+    private readonly string _displayDirectory;
+    private readonly bool _isFileSystem;
+    private readonly bool _isInUserHome;
 
-    public PathSegment(string currentDirectory)
+    public PathSegment(
+        Microsoft.Extensions.Primitives.StringSegment currentDirectory,
+        Microsoft.Extensions.Primitives.StringSegment currentDirectoryProvider)
     {
-        string userProfileDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        bool inUserHome = currentDirectory.StartsWith(userProfileDirectory, StringComparison.OrdinalIgnoreCase);
+        _currentDirectory = _displayDirectory = currentDirectory.ToString();
+        bool isFileSystem = _isFileSystem = currentDirectoryProvider.Equals(@"Microsoft.PowerShell.Core\FileSystem", StringComparison.OrdinalIgnoreCase);
 
-        _currentDirectory = currentDirectory;
-        _userProfileDirectoryLength = inUserHome ? userProfileDirectory.Length : 0;
+        if (isFileSystem)
+        {
+            string userProfileDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+            if (currentDirectory.StartsWith(userProfileDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                // remove user home from path, replace with "~" later
+                _isInUserHome = true;
+                _displayDirectory = currentDirectory.Substring(userProfileDirectory.Length);
+            }
+        }
     }
 
-    public int UnformattedLength => _userProfileDirectoryLength > 0 ?
-                                        Prefix.Length + _currentDirectory.Length - _userProfileDirectoryLength + 1 :
-                                        Prefix.Length + _currentDirectory.Length;
+    public int UnformattedLength => _isInUserHome ?
+                                        Prefix.Length + _displayDirectory.Length + 1 : // "~"
+                                        Prefix.Length + _displayDirectory.Length;
 
     public void Append(ref ValueStringBuilder sb)
     {
-        if (Path.Exists(_currentDirectory))
+        if (!_isFileSystem)
         {
-            sb.Append("[blue]");
-            sb.Append(Prefix);
-        }
-        else if (_currentDirectory.Equals("Env:\\", StringComparison.OrdinalIgnoreCase))
-        {
+            // e.g. "Env:\", "Function:\", "Variable:\"
             sb.Append("[yellow]");
-            sb.Append(Prefix);
-            sb.Append("[/][blue]");
+        }
+        else if (!Path.Exists(_currentDirectory))
+        {
+            // is file system, but doesn't exist
+            // e.g. directory was deleted from under us
+            sb.Append("[red]");
         }
         else
         {
-            sb.Append("[red]");
-            sb.Append(Prefix);
-            sb.Append("[/][blue]");
+            sb.Append("[aqua]");
         }
 
-        if (_userProfileDirectoryLength > 0)
+        sb.Append(Prefix);
+
+        if (_isInUserHome)
         {
             sb.Append('~');
-            sb.Append(_currentDirectory.AsSpan(_userProfileDirectoryLength));
-        }
-        else
-        {
-            sb.Append(_currentDirectory);
         }
 
+        sb.Append(_displayDirectory);
         sb.Append("[/]");
     }
 
