@@ -9,7 +9,8 @@ internal readonly struct LastCommandDurationSegment : ISegment
     private readonly int _thresholdMs;
     private readonly string _unformattedString;
 
-    public int UnformattedLength => _unformattedString == null ? 0 : _unformattedString.Length;
+    // Length -1 because "󰥕" has length 2, but only takes up 1 column
+    public int UnformattedLength => _unformattedString?.Length - 1 ?? 0;
 
     public LastCommandDurationSegment(int lastCommandDurationMs, int thresholdMs)
     {
