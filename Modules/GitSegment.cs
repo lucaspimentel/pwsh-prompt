@@ -24,7 +24,7 @@ internal readonly struct GitSegment : ISegment
             return;
         }
 
-        sb.Append("[magenta]");
+        sb.Append("[#ff7fff]");
         sb.Append(Prefix);
         sb.Append(_branchName);
         sb.Append("[/]");

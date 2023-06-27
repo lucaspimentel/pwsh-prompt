@@ -17,7 +17,7 @@ internal readonly struct PromptSegment : ISegment
 
     public void Append(ref ValueStringBuilder sb)
     {
-        sb.Append(_lastCommandState ? "[green] " : "[red] ");
+        sb.Append(_lastCommandState ? "[lime] " : "[red] ");
         sb.Append(_prompt);
         sb.Append(" [/]");
     }

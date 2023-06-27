@@ -44,11 +44,11 @@ internal static class Program
 
                 if (Settings.Debug)
                 {
-                    AnsiConsole.Foreground = Color.Yellow;
+                    //AnsiConsole.Markup("[yellow]");
                     AnsiConsole.WriteLine(@$"Literal arguments: ""{string.Join(" ", args)}""");
                     AnsiConsole.WriteLine($"Parsed arguments: {state}");
                     AnsiConsole.WriteLine($"Current directory: {Environment.CurrentDirectory}");
-                    AnsiConsole.ResetColors();
+                    //AnsiConsole.Markup("[/]");
                 }
 
                 // Console.WriteLine($"{pathSegment}{gitSegment}{fillerSegment}{durationSegment}{dateTimeSegment}");
@@ -88,7 +88,6 @@ internal static class Program
 
                 Span<char> buffer = stackalloc char[1024];
                 var promptBuilder = new ValueStringBuilder(buffer);
-
                 string prompt;
 
                 try
@@ -99,11 +98,6 @@ internal static class Program
                 finally
                 {
                     promptBuilder.Dispose();
-                }
-
-                if (Settings.Debug)
-                {
-                    AnsiConsole.WriteLine(prompt);
                 }
 
                 AnsiConsole.Markup(prompt);
@@ -120,13 +114,11 @@ internal static class Program
 
             foreach (var segment in segments)
             {
-                if (segment is NewLineSegment)
+                AnsiConsole.MarkupInterpolated(@$"[yellow]{segment.GetType().Name} ({segment.UnformattedLength})[/]");
+
+                if (segment is not NewLineSegment)
                 {
-                    AnsiConsole.MarkupInterpolated(@$"[yellow]{segment.GetType().Name} ({segment.UnformattedLength})[/]");
-                }
-                else
-                {
-                    AnsiConsole.MarkupInterpolated(@$"[yellow]{segment.GetType().Name} ({segment.UnformattedLength})[/]: ""{segment}""");
+                    AnsiConsole.Write(@$": ""{segment}""");
                 }
 
                 AnsiConsole.WriteLine();
