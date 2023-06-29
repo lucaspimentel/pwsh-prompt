@@ -5,12 +5,14 @@ namespace Prompt.Modules;
 
 internal readonly struct LastCommandDurationSegment : ISegment
 {
+    private const string Prefix = " 󰥕 ";
+
     private readonly int _lastCommandDurationMs;
     private readonly int _thresholdMs;
     private readonly string _unformattedString;
 
     // Length -1 because "󰥕" has length 2, but only takes up 1 column
-    public int UnformattedLength => _unformattedString?.Length - 1 ?? 0;
+    public int UnformattedLength => string.IsNullOrEmpty(_unformattedString) ? 0 : _unformattedString.Length - 1;
 
     public LastCommandDurationSegment(int lastCommandDurationMs, int thresholdMs)
     {
@@ -56,7 +58,7 @@ internal readonly struct LastCommandDurationSegment : ISegment
             return;
         }
 
-        sb.Append(" 󰥕 ");
+        sb.Append(Prefix);
 
         switch (_lastCommandDurationMs)
         {
