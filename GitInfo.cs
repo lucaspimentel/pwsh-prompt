@@ -75,30 +75,24 @@ internal static partial class GitInfo
         {
             string gitPath = Path.Combine(path, ".git");
 
-            if (Settings.Debug)
-            {
-                AnsiConsole.MarkupLineInterpolated($"[yellow]Git: checking {gitPath}[/]");
-            }
-
             if (Directory.Exists(gitPath))
             {
                 if (Settings.Debug)
                 {
-                    AnsiConsole.MarkupLineInterpolated($"[yellow]Git: found {gitPath}[/]");
+                    AnsiConsole.MarkupLineInterpolated($"[yellow]Git: found in {gitPath}[/]");
                 }
 
                 return gitPath;
+            }
+            else if (Settings.Debug)
+            {
+                AnsiConsole.MarkupLineInterpolated($"[yellow]Git: not found in {gitPath}[/]");
             }
 
             path = Path.GetDirectoryName(path)!;
 
             if (string.IsNullOrEmpty(path))
             {
-                if (Settings.Debug)
-                {
-                    AnsiConsole.MarkupLineInterpolated($"[yellow]Git: folder not found {gitPath}[/]");
-                }
-
                 return null;
             }
         }
