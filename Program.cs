@@ -63,7 +63,7 @@ internal static class Program
                 var shellSegment = new StringSegment(" pwsh");
                 var promptSegment = new PromptSegment(Settings.Prompt, state.LastCommandState);
 
-                var fillerWidth = state.TerminalWidth - pathSegment.UnformattedLength - gitSegment.UnformattedLength - lastCommandDurationSegment.UnformattedLength - dateTimeSegment.UnformattedLength - 2;
+                var fillerWidth = state.TerminalWidth - pathSegment.UnformattedLength - gitSegment.UnformattedLength - lastCommandDurationSegment.UnformattedLength - dateTimeSegment.UnformattedLength - 1;
                 var fillerSegment = new StringSegment(fillerWidth <= 0 ? "" : new string(' ', fillerWidth));
 
                 var line1 = new ISegment[]
