@@ -9,16 +9,13 @@ internal readonly struct PathSegment : ISegment
     private const string Prefix = "  ";
 
     private readonly string _currentDirectory;
-    private readonly string _displayDirectory;
     private readonly bool _isFileSystem;
     private readonly bool _isInUserHome;
 
-    public PathSegment(
-        Microsoft.Extensions.Primitives.StringSegment currentDirectory,
-        Microsoft.Extensions.Primitives.StringSegment currentDirectoryProvider)
+    public PathSegment(Microsoft.Extensions.Primitives.StringSegment currentDirectory, bool isFileSystem)
     {
-        _currentDirectory = _displayDirectory = currentDirectory.ToString();
-        bool isFileSystem = _isFileSystem = currentDirectoryProvider.Equals(@"Microsoft.PowerShell.Core\FileSystem", StringComparison.OrdinalIgnoreCase);
+        _currentDirectory = currentDirectory.ToString();
+        _isFileSystem = isFileSystem;
 
         if (isFileSystem)
         {
@@ -26,25 +23,20 @@ internal readonly struct PathSegment : ISegment
 
             if (currentDirectory.StartsWith(userProfileDirectory, StringComparison.OrdinalIgnoreCase))
             {
-                // remove user home from path, replace with "~" later
+                // remove user home from path, prepend "~" later
                 _isInUserHome = true;
-                _displayDirectory = currentDirectory.Substring(userProfileDirectory.Length);
+                _currentDirectory = currentDirectory.Substring(userProfileDirectory.Length);
             }
         }
     }
 
     public int UnformattedLength => _isInUserHome ?
-                                        Prefix.Length + _displayDirectory.Length + 1 : // "~"
-                                        Prefix.Length + _displayDirectory.Length;
+                                        Prefix.Length + _currentDirectory.Length + 1 : // "~"
+                                        Prefix.Length + _currentDirectory.Length;
 
     public void Append(ref ValueStringBuilder sb)
     {
-        if (!_isFileSystem)
-        {
-            // e.g. "Env:\", "Function:\", "Variable:\"
-            sb.Append("[yellow]");
-        }
-        else if (!Path.Exists(_currentDirectory))
+        if (_isFileSystem && !Path.Exists(_currentDirectory))
         {
             // is file system, but doesn't exist
             // e.g. directory was deleted from under us
@@ -62,7 +54,7 @@ internal readonly struct PathSegment : ISegment
             sb.Append('~');
         }
 
-        sb.Append(_displayDirectory);
+        sb.Append(_currentDirectory);
         sb.Append("[/]");
     }
 

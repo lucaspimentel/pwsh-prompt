@@ -3,8 +3,6 @@
 internal static class Init
 {
     public static string GetPowerShell(string processName) => $@"
-Write-Host 'Configuring prompt...';
-
 # Create a new dynamic module so we don't pollute the global namespace with our functions and variables
 $null = New-Module lucas-prompt {{
 
@@ -59,7 +57,7 @@ $null = New-Module lucas-prompt {{
             ""prompt"",
             ""--terminal-width=$($Host.UI.RawUI.WindowSize.Width)"",
             ""--current-directory=$($PWD.Path)"",
-            ""--current-directory-provider=$($PWD.Provider)"",
+            ""--current-directory-is-filesystem=$($PWD.Provider -eq 'Microsoft.PowerShell.Core\FileSystem')"",
             ""--last-command-state=$origDollarQuestion"",
             ""--last-command-duration=$( ([int](Get-History -Count 1).Duration.TotalMilliseconds).ToString([System.Globalization.CultureInfo]::InvariantCulture) )""
         )

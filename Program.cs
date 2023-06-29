@@ -55,8 +55,8 @@ internal static class Program
                 // Console.WriteLine($"{osSegment}{shellSegment}{promptSegment}");
 
                 var newLineSegment = new NewLineSegment();
-                var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryProvider);
-                var gitSegment = new GitSegment();
+                var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryIsFileSystem);
+                var gitSegment = new GitSegment(state.CurrentDirectory.ToString());
                 var lastCommandDurationSegment = new LastCommandDurationSegment(state.LastCommandDurationMs, Settings.LastCommandDurationThresholdMs);
                 var dateTimeSegment = new DateTimeSegment();
                 var osSegment = new OsSegment();
