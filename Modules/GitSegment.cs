@@ -1,5 +1,4 @@
-﻿using System.IO;
-using System.Text;
+﻿using System.Text;
 
 namespace Prompt.Modules;
 
@@ -9,13 +8,12 @@ internal readonly struct GitSegment : ISegment
 
     private readonly Microsoft.Extensions.Primitives.StringSegment _branchName;
 
-    public GitSegment()
+    public GitSegment(string path)
     {
-        string currentDirectory = Directory.GetCurrentDirectory();
-        _branchName = GitInfo.GetBranchName(currentDirectory);
+        _branchName = GitInfo.GetBranchName(path);
     }
 
-    public int UnformattedLength => Prefix.Length + _branchName.Length;
+    public int UnformattedLength => _branchName.Length == 0 ? 0 : Prefix.Length + _branchName.Length;
 
     public void Append(ref ValueStringBuilder sb)
     {
