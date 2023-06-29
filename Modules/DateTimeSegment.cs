@@ -11,12 +11,12 @@ internal readonly struct DateTimeSegment : ISegment
     {
     }
 
-    public int UnformattedLength => _now.Hour < 10 ? 22 : 23;
+    public int UnformattedLength => _now.Hour % 12 < 10 ? 22 : 23;
 
     public void Append(ref ValueStringBuilder sb)
     {
         sb.Append(" at ");
-        sb.AppendSpanFormattable(_now, "yyyy-mm-dd hh:mm tt");
+        sb.AppendSpanFormattable(_now, "yyyy-mm-dd h:mm tt");
     }
 
     public override string ToString()
