@@ -9,6 +9,10 @@
         <PublishTrimmed>true</PublishTrimmed>
         <PublishAot>true</PublishAot>
 
+        <OptimizationPreference>Speed</OptimizationPreference>
+        <IlcGenerateMstatFile>true</IlcGenerateMstatFile>
+        <IlcGenerateDgmlFile>true</IlcGenerateDgmlFile>
+
         <!-- <TrimmerSingleWarn>false</TrimmerSingleWarn> -->
         <Nullable>enable</Nullable>
     </PropertyGroup>
