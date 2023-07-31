@@ -4,12 +4,25 @@
         <OutputType>Exe</OutputType>
         <TargetFramework>net7.0</TargetFramework>
         <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
-        <PublishSingleFile>false</PublishSingleFile>
-        <PublishReadyToRun>false</PublishReadyToRun>
+        <!-- <PublishSingleFile>false</PublishSingleFile> -->
+        <!-- <PublishReadyToRun>false</PublishReadyToRun> -->
         <PublishTrimmed>true</PublishTrimmed>
         <PublishAot>true</PublishAot>
 
+        <!-- AOT size optimization options -->
+        <!-- https://learn.microsoft.com/en-us/dotnet/core/deploying/trimming/trimming-options?pivots=dotnet-7-0#trimming-framework-library-features -->
         <OptimizationPreference>Speed</OptimizationPreference>
+        <DebuggerSupport>false</DebuggerSupport>
+        <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+        <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
+        <EventSourceSupport>false</EventSourceSupport>
+        <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+        <InvariantGlobalization>true</InvariantGlobalization>
+        <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+        <UseNativeHttpHandler>true</UseNativeHttpHandler>
+        <UseSystemResourceKeys>true</UseSystemResourceKeys>
+
+        <!-- allow analyzing final output size -->
         <IlcGenerateMstatFile>true</IlcGenerateMstatFile>
         <IlcGenerateDgmlFile>true</IlcGenerateDgmlFile>
 
