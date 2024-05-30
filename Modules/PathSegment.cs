@@ -6,7 +6,7 @@ namespace Prompt.Modules;
 
 internal readonly struct PathSegment : ISegment
 {
-    private const string Prefix = "  ";
+    private const string Prefix = "   ";
 
     private readonly string _currentDirectory;
     private readonly bool _isFileSystem;

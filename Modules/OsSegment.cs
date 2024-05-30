@@ -11,19 +11,19 @@ internal readonly struct OsSegment : ISegment
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            _value = " ";
+            _value = "  ";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            _value = " ";
+            _value = "  ";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            _value = " ";
+            _value = "  ";
         }
         else
         {
-            _value = " Unknown OS";
+            _value = " OS? ";
         }
     }
 
