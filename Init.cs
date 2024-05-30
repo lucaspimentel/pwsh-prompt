@@ -59,7 +59,7 @@ $$"""
               "prompt",
               "--terminal-width=$($Host.UI.RawUI.WindowSize.Width)",
               "--current-directory=$($PWD.Path)",
-              "--current-directory-is-filesystem=$($PWD.Provider -eq 'Microsoft.PowerShell.Core\FileSystem')",
+              "--current-directory-is-filesystem=$($PWD.Provider.Name -eq 'FileSystem')",
               "--last-command-state=$origDollarQuestion",
               "--last-command-duration=$( ([int](Get-History -Count 1).Duration.TotalMilliseconds).ToString([System.Globalization.CultureInfo]::InvariantCulture) )"
           )
