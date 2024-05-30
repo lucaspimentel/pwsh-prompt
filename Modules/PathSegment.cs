@@ -8,13 +8,14 @@ internal readonly struct PathSegment : ISegment
 {
     private const string Prefix = "   ";
 
-    private readonly string _currentDirectory;
+    private readonly string _currentDirectoryDisplay;
+    private readonly string _currentDirectoryExpanded;
     private readonly bool _isFileSystem;
     private readonly bool _isInUserHome;
 
     public PathSegment(Microsoft.Extensions.Primitives.StringSegment currentDirectory, bool isFileSystem)
     {
-        _currentDirectory = currentDirectory.ToString();
+        _currentDirectoryDisplay = _currentDirectoryExpanded = currentDirectory.ToString();
         _isFileSystem = isFileSystem;
 
         if (isFileSystem)
@@ -25,18 +26,18 @@ internal readonly struct PathSegment : ISegment
             {
                 // remove user home from path, prepend "~" later
                 _isInUserHome = true;
-                _currentDirectory = currentDirectory.Substring(userProfileDirectory.Length);
+                _currentDirectoryDisplay = currentDirectory.Substring(userProfileDirectory.Length);
             }
         }
     }
 
     public int UnformattedLength => _isInUserHome ?
-                                        Prefix.Length + _currentDirectory.Length + 1 : // "~"
-                                        Prefix.Length + _currentDirectory.Length;
+                                        Prefix.Length + _currentDirectoryDisplay.Length + 1 : // "~"
+                                        Prefix.Length + _currentDirectoryDisplay.Length;
 
     public void Append(ref ValueStringBuilder sb)
     {
-        if (_isFileSystem && !Path.Exists(_currentDirectory))
+        if (_isFileSystem && !Path.Exists(_currentDirectoryExpanded))
         {
             // is file system, but doesn't exist
             // e.g. directory was deleted from under us
@@ -54,7 +55,7 @@ internal readonly struct PathSegment : ISegment
             sb.Append('~');
         }
 
-        sb.Append(_currentDirectory);
+        sb.Append(_currentDirectoryDisplay);
         sb.Append("[/]");
     }
 
