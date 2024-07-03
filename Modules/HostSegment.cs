@@ -5,7 +5,7 @@ namespace Prompt.Modules;
 
 internal readonly struct HostSegment : ISegment
 {
-    private const string Prefix = "   ";
+    private const string Prefix = " on   ";
 
     private readonly string _hostname = Dns.GetHostName();
 
