@@ -55,6 +55,7 @@ internal static class Program
                 // Console.WriteLine($"{osSegment}{shellSegment}{promptSegment}");
 
                 var newLineSegment = new NewLineSegment();
+                var hostSegment = new HostSegment();
                 var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryIsFileSystem);
                 var gitSegment = new GitSegment(state.CurrentDirectory.ToString());
                 var lastCommandDurationSegment = new LastCommandDurationSegment(state.LastCommandDurationMs, Settings.LastCommandDurationThresholdMs);
@@ -64,6 +65,7 @@ internal static class Program
                 var promptSegment = new PromptSegment(Settings.Prompt, state.LastCommandState);
 
                 var fillerWidth = state.TerminalWidth
+                                  - hostSegment.UnformattedLength
                                   - pathSegment.UnformattedLength
                                   - gitSegment.UnformattedLength
                                   - lastCommandDurationSegment.UnformattedLength
@@ -78,6 +80,7 @@ internal static class Program
 
                                 pathSegment,
                                 gitSegment,
+                                hostSegment,
 
                                 fillerSegment,
 
