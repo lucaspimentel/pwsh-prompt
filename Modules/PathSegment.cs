@@ -6,12 +6,14 @@ namespace Prompt.Modules;
 
 internal readonly struct PathSegment : ISegment
 {
-    private const string Prefix = "   ";
+    private const string DefaultPrefix = "   ";
+    private const string GitPrefix = "   ";
 
     private readonly Microsoft.Extensions.Primitives.StringSegment _currentDirectoryDisplay;
     private readonly Microsoft.Extensions.Primitives.StringSegment _currentDirectoryExpanded;
     private readonly bool _isFileSystem;
     private readonly bool _isInUserHome;
+    private readonly bool _isGitRepo;
 
     public PathSegment(Microsoft.Extensions.Primitives.StringSegment currentDirectory, bool isFileSystem)
     {
@@ -58,6 +60,28 @@ internal readonly struct PathSegment : ISegment
             }
         }
 
+        if (GitInfo.TryFindGitFolder(currentDirectory, out var gitDirectory))
+        {
+            // currentDirectory = /path/to/repo[/child]
+            // gitDirectory = /path/to/repo/.git
+            // ----------------------------------------------
+            // repositoryDirectory = /path/to/repo[/child]
+            // repositoryParentDirectory = /path/to
+
+            if (Path.GetDirectoryName(gitDirectory) is { } repositoryDirectory &&
+                Path.GetDirectoryName(repositoryDirectory) is { } repositoryParentDirectory)
+            {
+                string displayPath = Path.GetRelativePath(repositoryParentDirectory, currentDirectory.ToString());
+
+                if (displayPath.Length > 0)
+                {
+                    _isGitRepo = true;
+                    _currentDirectoryDisplay = displayPath;
+                    return;
+                }
+            }
+        }
+
         string userProfileDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
         if (currentDirectory.StartsWith(userProfileDirectory, StringComparison.OrdinalIgnoreCase))
@@ -68,9 +92,17 @@ internal readonly struct PathSegment : ISegment
         }
     }
 
-    public int UnformattedLength => _isInUserHome ?
-                                        Prefix.Length + _currentDirectoryDisplay.Length + 1 : // "~"
-                                        Prefix.Length + _currentDirectoryDisplay.Length;
+    public int UnformattedLength
+    {
+        get
+        {
+            var prefixLength = _isGitRepo ? GitPrefix.Length : DefaultPrefix.Length;
+
+            return _isInUserHome ?
+                prefixLength + _currentDirectoryDisplay.Length + 1 : // "~"
+                prefixLength + _currentDirectoryDisplay.Length;
+        }
+    }
 
     public void Append(ref ValueStringBuilder sb)
     {
@@ -85,11 +117,18 @@ internal readonly struct PathSegment : ISegment
             sb.Append("[aqua]");
         }
 
-        sb.Append(Prefix);
-
-        if (_isInUserHome)
+        if (_isGitRepo)
         {
-            sb.Append('~');
+            sb.Append(GitPrefix);
+        }
+        else
+        {
+            sb.Append(DefaultPrefix);
+
+            if (_isInUserHome)
+            {
+                sb.Append('~');
+            }
         }
 
         sb.Append(_currentDirectoryDisplay);

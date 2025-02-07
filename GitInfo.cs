@@ -14,11 +14,11 @@ namespace Prompt;
 
 internal static partial class GitInfo
 {
+    private static string? _gitDirectory;
+
     public static StringSegment GetBranchName(string path)
     {
-        string? gitFolder = FindGitFolder(path);
-
-        if (string.IsNullOrEmpty(gitFolder))
+        if (!TryFindGitFolder(path, out var gitFolder))
         {
             return StringSegment.Empty;
         }
@@ -64,8 +64,14 @@ internal static partial class GitInfo
         return branch;
     }
 
-    private static string? FindGitFolder(string path)
+    public static bool TryFindGitFolder(ReadOnlySpan<char> path, out string gitDirectory)
     {
+        if (_gitDirectory is not null)
+        {
+            gitDirectory = _gitDirectory;
+            return true;
+        }
+
         if (Settings.Debug)
         {
             AnsiConsole.WriteLine();
@@ -73,7 +79,7 @@ internal static partial class GitInfo
 
         while (true)
         {
-            string gitPath = Path.Combine(path, ".git");
+            string gitPath = Path.Join(path, ".git");
 
             if (Directory.Exists(gitPath))
             {
@@ -82,18 +88,21 @@ internal static partial class GitInfo
                     AnsiConsole.MarkupLineInterpolated($"[yellow]Git: found in {gitPath}[/]");
                 }
 
-                return gitPath;
+                _gitDirectory = gitDirectory = gitPath;
+                return true;
             }
-            else if (Settings.Debug)
+
+            if (Settings.Debug)
             {
                 AnsiConsole.MarkupLineInterpolated($"[yellow]Git: not found in {gitPath}[/]");
             }
 
-            path = Path.GetDirectoryName(path)!;
+            path = Path.GetDirectoryName(path);
 
-            if (string.IsNullOrEmpty(path))
+            if (path.Length == 0)
             {
-                return null;
+                _gitDirectory = gitDirectory = string.Empty;
+                return false;
             }
         }
     }
@@ -121,7 +130,7 @@ internal static partial class GitInfo
             {
                 if (currentItem != null)
                 {
-                    string[] keyValue = line[1..].Split(new[] { " = " }, StringSplitOptions.RemoveEmptyEntries);
+                    string[] keyValue = line[1..].Split(" = ", StringSplitOptions.RemoveEmptyEntries);
 
                     if (keyValue[0] == "merge")
                     {
