@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net9.0</TargetFramework>
         <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
         <!-- <PublishSingleFile>false</PublishSingleFile> -->
         <!-- <PublishReadyToRun>false</PublishReadyToRun> -->
@@ -23,8 +23,8 @@
         <UseSystemResourceKeys>true</UseSystemResourceKeys>
 
         <!-- allow analyzing final output size -->
-        <IlcGenerateMstatFile>true</IlcGenerateMstatFile>
-        <IlcGenerateDgmlFile>true</IlcGenerateDgmlFile>
+        <!-- <IlcGenerateMstatFile>true</IlcGenerateMstatFile> -->
+        <!-- <IlcGenerateDgmlFile>true</IlcGenerateDgmlFile> -->
 
         <!-- <TrimmerSingleWarn>false</TrimmerSingleWarn> -->
         <Nullable>enable</Nullable>
@@ -34,7 +34,6 @@
         <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.2.0" />
         <PackageReference Include="Microsoft.Extensions.Primitives" Version="7.0.0" />
         <PackageReference Include="Spectre.Console" Version="0.47.0" />
-
         <PackageReference Include="Spectre.Console.Analyzer" Version="0.47.0" PrivateAssets="All" />
     </ItemGroup>
 
