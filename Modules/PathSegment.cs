@@ -8,26 +8,63 @@ internal readonly struct PathSegment : ISegment
 {
     private const string Prefix = "   ";
 
-    private readonly string _currentDirectoryDisplay;
-    private readonly string _currentDirectoryExpanded;
+    private readonly Microsoft.Extensions.Primitives.StringSegment _currentDirectoryDisplay;
+    private readonly Microsoft.Extensions.Primitives.StringSegment _currentDirectoryExpanded;
     private readonly bool _isFileSystem;
     private readonly bool _isInUserHome;
 
     public PathSegment(Microsoft.Extensions.Primitives.StringSegment currentDirectory, bool isFileSystem)
     {
-        _currentDirectoryDisplay = _currentDirectoryExpanded = currentDirectory.ToString();
+        _currentDirectoryDisplay = _currentDirectoryExpanded = currentDirectory;
         _isFileSystem = isFileSystem;
 
-        if (isFileSystem)
+        if (!isFileSystem)
         {
-            string userProfileDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            return;
+        }
 
-            if (currentDirectory.StartsWith(userProfileDirectory, StringComparison.OrdinalIgnoreCase))
+        var processDirectory = Path.GetDirectoryName(Environment.ProcessPath);
+
+        if (processDirectory is null)
+        {
+            return;
+        }
+
+        string mapDefinitionFilename = Path.Combine(processDirectory, "prompt-path-mappings.txt");
+
+        if (File.Exists(mapDefinitionFilename))
+        {
+            var lines = File.ReadLines(mapDefinitionFilename);
+
+            foreach (string line in lines)
             {
-                // remove user home from path, prepend "~" later
-                _isInUserHome = true;
-                _currentDirectoryDisplay = currentDirectory.Substring(userProfileDirectory.Length);
+                var lineSpan = line.AsSpan();
+                var split = line.IndexOf('|');
+
+                if (split > 0)
+                {
+                    var key = lineSpan[..split];
+                    var currentDirectorySpan = currentDirectory.AsSpan().TrimEnd(@"/\");
+
+                    // if current directory equals "key", or starts with "key/" or "key\", replace "key" with "value"
+                    if (currentDirectorySpan.StartsWith(key, StringComparison.OrdinalIgnoreCase) &&
+                        (currentDirectorySpan.Length == key.Length || currentDirectorySpan[key.Length] is '/' or '\\'))
+                    {
+                        var value = lineSpan[(split + 1)..].TrimEnd(@"/\");
+                        _currentDirectoryDisplay = string.Concat(value, currentDirectorySpan[key.Length..]);
+                        return;
+                    }
+                }
             }
+        }
+
+        string userProfileDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+        if (currentDirectory.StartsWith(userProfileDirectory, StringComparison.OrdinalIgnoreCase))
+        {
+            // remove user home from path, prepend "~" later
+            _isInUserHome = true;
+            _currentDirectoryDisplay = currentDirectory.Substring(userProfileDirectory.Length);
         }
     }
 
@@ -37,7 +74,7 @@ internal readonly struct PathSegment : ISegment
 
     public void Append(ref ValueStringBuilder sb)
     {
-        if (_isFileSystem && !Path.Exists(_currentDirectoryExpanded))
+        if (_isFileSystem && !Path.Exists(_currentDirectoryExpanded.ToString()))
         {
             // is file system, but doesn't exist
             // e.g. directory was deleted from under us
