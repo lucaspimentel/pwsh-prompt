@@ -111,6 +111,13 @@ internal static class Program
                 AnsiConsole.Markup(prompt);
                 return;
             }
+
+            case null or []:
+            {
+                AnsiConsole.WriteLine("Usage: Prompt init");
+                AnsiConsole.WriteLine("       Prompt prompt [arguments]");
+                return;
+            }
         }
     }
 
