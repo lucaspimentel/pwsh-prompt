@@ -1,10 +1,17 @@
 ﻿using System;
 using System.Globalization;
+using System.Reflection;
 using Microsoft.Extensions.Primitives;
+using Spectre.Console;
 
 namespace Prompt;
 
-public readonly record struct Arguments(int TerminalWidth, StringSegment CurrentDirectory, bool CurrentDirectoryIsFileSystem, int LastCommandDurationMs, bool LastCommandState)
+public readonly record struct Arguments(
+    int TerminalWidth,
+    StringSegment CurrentDirectory,
+    bool CurrentDirectoryIsFileSystem,
+    int LastCommandDurationMs,
+    bool LastCommandState)
 {
     private const string TerminalWidthOption = "--terminal-width=";
     private const string CurrentDirectoryOption = "--current-directory=";

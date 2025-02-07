@@ -122,7 +122,7 @@ internal static class Program
 
             foreach (var segment in segments)
             {
-                AnsiConsole.MarkupInterpolated(@$"[yellow]{segment.GetType().Name} ({segment.UnformattedLength})[/]");
+                AnsiConsole.MarkupInterpolated($"[yellow]{segment.GetType().Name} ({segment.UnformattedLength})[/]");
 
                 if (segment is not NewLineSegment)
                 {
