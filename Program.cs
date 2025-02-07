@@ -8,7 +8,7 @@ using Spectre.Console;
 
 // $host.ui.RawUI.WindowTitle = 'pwsh'
 // [System.Console]::OutputEncoding = [System.Text.Encoding]::UTF8;
-// ❯    󰅒 󰥕
+// ❯    󰅒 󰥕 
 
 namespace Prompt;
 
