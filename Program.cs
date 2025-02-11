@@ -56,13 +56,21 @@ internal static class Program
 
                 var newLineSegment = new NewLineSegment();
                 var hostSegment = new HostSegment();
-                var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryIsFileSystem);
                 var gitSegment = new GitSegment(state.CurrentDirectory.ToString());
                 var lastCommandDurationSegment = new LastCommandDurationSegment(state.LastCommandDurationMs, Settings.LastCommandDurationThresholdMs);
                 var dateTimeSegment = new DateTimeSegment();
                 var osSegment = new OsSegment();
                 var shellSegment = new StringSegment(" pwsh");
                 var promptSegment = new PromptSegment(Settings.Prompt, state.LastCommandState);
+
+                int maxPathLength = state.TerminalWidth
+                                   - hostSegment.UnformattedLength
+                                   - gitSegment.UnformattedLength
+                                   - lastCommandDurationSegment.UnformattedLength
+                                   - dateTimeSegment.UnformattedLength
+                                   - 3;
+
+                var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryIsFileSystem, maxPathLength);
 
                 var fillerWidth = state.TerminalWidth
                                   - hostSegment.UnformattedLength
