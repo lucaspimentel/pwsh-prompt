@@ -15,6 +15,7 @@ namespace Prompt;
 internal static partial class GitInfo
 {
     private static string? _gitDirectory;
+    private static bool? _foundGitDirectory;
 
     public static StringSegment GetBranchName(string path)
     {
@@ -66,10 +67,10 @@ internal static partial class GitInfo
 
     public static bool TryFindGitFolder(ReadOnlySpan<char> path, out string gitDirectory)
     {
-        if (_gitDirectory is not null)
+        if (_foundGitDirectory is { } found && _gitDirectory is not null)
         {
             gitDirectory = _gitDirectory;
-            return true;
+            return found;
         }
 
         if (Settings.Debug)
@@ -89,6 +90,7 @@ internal static partial class GitInfo
                 }
 
                 _gitDirectory = gitDirectory = gitPath;
+                _foundGitDirectory = true;
                 return true;
             }
 
@@ -102,6 +104,7 @@ internal static partial class GitInfo
             if (path.Length == 0)
             {
                 _gitDirectory = gitDirectory = string.Empty;
+                _foundGitDirectory = false;
                 return false;
             }
         }
