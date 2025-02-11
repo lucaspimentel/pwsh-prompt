@@ -3,4 +3,6 @@
 .vscode/
 bin/
 obj/
+artifacts/
+publish/
 *.user
