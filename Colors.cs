@@ -2,7 +2,9 @@
 
 internal static class Colors
 {
-    public const string Reset = "\x1b[0m";
+    // https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
+    // "\x1b" == "\e" == Escape
+    public const string Reset = "\e[0m";
 
     public const string Red = "\x1b[1;31m";
     public const string Green = "\x1b[1;32m";
