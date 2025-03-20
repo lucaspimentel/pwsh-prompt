@@ -5,21 +5,19 @@ namespace Prompt.Modules;
 internal readonly struct PromptSegment : ISegment
 {
     private readonly string _prompt;
-    private readonly bool _lastCommandState;
 
-    public int UnformattedLength => _prompt.Length + 2;
+    public int UnformattedLength => _prompt.Length;
 
-    public PromptSegment(string prompt, bool lastCommandState)
+    public PromptSegment(string prompt)
     {
         _prompt = prompt;
-        _lastCommandState = lastCommandState;
     }
 
     public void Append(ref ValueStringBuilder sb)
     {
-        sb.Append(_lastCommandState ? "[lime] " : "[red] ");
+        sb.Append("[lime]");
         sb.Append(_prompt);
-        sb.Append(" [/]");
+        sb.Append("[/]");
     }
 
     public override string ToString()

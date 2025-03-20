@@ -8,5 +8,5 @@ internal static class Settings
 
     public const int LastCommandDurationThresholdMs = 30;
 
-    public const string Prompt = "❯";
+    public const string Prompt = " ❯ ";
 }

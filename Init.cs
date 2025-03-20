@@ -61,6 +61,7 @@ $$"""
               "--current-directory=$($PWD.Path)",
               "--current-directory-is-filesystem=$($PWD.Provider.Name -eq 'FileSystem')",
               "--last-command-state=$origDollarQuestion",
+              "--last-command-exit-code=$LASTEXITCODE",
               "--last-command-duration=$( ([int](Get-History -Count 1).Duration.TotalMilliseconds).ToString([System.Globalization.CultureInfo]::InvariantCulture) )"
           )
   

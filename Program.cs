@@ -57,15 +57,17 @@ internal static class Program
                 var newLineSegment = new NewLineSegment();
                 var hostSegment = new HostSegment();
                 var gitSegment = new GitSegment(state.CurrentDirectory.ToString());
+                var lastCommandExitCodeSegment = new LastCommandExitCodeSegment(state.LastCommandExitCode, state.LastCommandState);
                 var lastCommandDurationSegment = new LastCommandDurationSegment(state.LastCommandDurationMs, Settings.LastCommandDurationThresholdMs);
                 var dateTimeSegment = new DateTimeSegment();
                 var osSegment = new OsSegment();
                 var shellSegment = new StringSegment(" pwsh");
-                var promptSegment = new PromptSegment(Settings.Prompt, state.LastCommandState);
+                var promptSegment = new PromptSegment(Settings.Prompt);
 
                 int maxPathLength = state.TerminalWidth
                                    - hostSegment.UnformattedLength
                                    - gitSegment.UnformattedLength
+                                   - lastCommandExitCodeSegment.UnformattedLength
                                    - lastCommandDurationSegment.UnformattedLength
                                    - dateTimeSegment.UnformattedLength
                                    - 3;
@@ -76,6 +78,7 @@ internal static class Program
                                   - hostSegment.UnformattedLength
                                   - pathSegment.UnformattedLength
                                   - gitSegment.UnformattedLength
+                                  - lastCommandExitCodeSegment.UnformattedLength
                                   - lastCommandDurationSegment.UnformattedLength
                                   - dateTimeSegment.UnformattedLength
                                   - 2;
@@ -92,6 +95,7 @@ internal static class Program
 
                                 fillerSegment,
 
+                                lastCommandExitCodeSegment,
                                 lastCommandDurationSegment,
                                 dateTimeSegment,
 

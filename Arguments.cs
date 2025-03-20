@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Globalization;
-using System.Reflection;
 using Microsoft.Extensions.Primitives;
-using Spectre.Console;
 
 namespace Prompt;
 
@@ -11,12 +9,14 @@ public readonly record struct Arguments(
     StringSegment CurrentDirectory,
     bool CurrentDirectoryIsFileSystem,
     int LastCommandDurationMs,
+    int LastCommandExitCode,
     bool LastCommandState)
 {
     private const string TerminalWidthOption = "--terminal-width=";
     private const string CurrentDirectoryOption = "--current-directory=";
     private const string CurrentDirectoryIsFileSystemOption = "--current-directory-is-filesystem=";
     private const string LastCommandDurationOption = "--last-command-duration=";
+    private const string LastCommandExitCodeOption = "--last-command-exit-code=";
     private const string LastCommandStateOption = "--last-command-state=";
 
     public static Arguments Parse(Span<string> args)
@@ -25,6 +25,7 @@ public readonly record struct Arguments(
         StringSegment currentDirectory = "";
         bool currentDirectoryIsFileSystem = true;
         int lastCommandDurationMs = 0;
+        int lastCommandExitCode = 0;
         bool lastCommandState = true;
 
         foreach (string arg in args)
@@ -54,6 +55,13 @@ public readonly record struct Arguments(
                     lastCommandDurationMs = result;
                 }
             }
+            else if (arg.StartsWith(LastCommandExitCodeOption, StringComparison.Ordinal))
+            {
+                if (int.TryParse(arg.AsSpan(LastCommandExitCodeOption.Length), CultureInfo.InvariantCulture, out var result))
+                {
+                    lastCommandExitCode = result;
+                }
+            }
             else if (arg.StartsWith(LastCommandStateOption, StringComparison.Ordinal))
             {
                 if (bool.TryParse(arg.AsSpan(LastCommandStateOption.Length), out var result))
@@ -80,6 +88,11 @@ public readonly record struct Arguments(
             currentDirectory = Environment.CurrentDirectory;
         }
 
-        return new Arguments(terminalWidth, currentDirectory, currentDirectoryIsFileSystem, lastCommandDurationMs, lastCommandState);
+        return new Arguments(terminalWidth,
+            currentDirectory,
+            currentDirectoryIsFileSystem,
+            lastCommandDurationMs,
+            lastCommandExitCode,
+            lastCommandState);
     }
 }
