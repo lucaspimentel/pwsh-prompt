@@ -10,8 +10,7 @@ internal readonly struct LastCommandExitCodeSegment : ISegment
     private readonly int _lastCommandExitCode;
     private readonly string _unformattedString;
 
-    // Length -1 because "" has length 2, but only takes up 1 column
-    public int UnformattedLength => string.IsNullOrEmpty(_unformattedString) ? 0 : _unformattedString.Length - 1;
+    public int UnformattedLength => string.IsNullOrEmpty(_unformattedString) ? 0 : _unformattedString.Length;
 
     public LastCommandExitCodeSegment(int lastCommandExitCode, bool lastCommandState)
     {
