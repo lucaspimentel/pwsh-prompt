@@ -3,7 +3,6 @@
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>net9.0</TargetFramework>
-        <AssemblyName>pwsh-prompt</AssemblyName>
         <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
         <!-- <PublishSingleFile>false</PublishSingleFile> -->
         <!-- <PublishReadyToRun>false</PublishReadyToRun> -->
