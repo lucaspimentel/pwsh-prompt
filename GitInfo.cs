@@ -41,7 +41,18 @@ internal static partial class GitInfo
         }
 
         // Process Git Config
-        string configPath = Path.Combine(path, "config");
+        // For worktrees, gitFolder points to .git/worktrees/<name>, so we need to go up to find config
+        string configPath = Path.Combine(gitFolder, "config");
+
+        if (!File.Exists(configPath))
+        {
+            // Try parent directory for worktrees (.git/worktrees/<name>/../..)
+            var parentGitFolder = Path.GetDirectoryName(Path.GetDirectoryName(gitFolder));
+            if (parentGitFolder != null)
+            {
+                configPath = Path.Combine(parentGitFolder, "config");
+            }
+        }
 
         foreach (var configItem in GetConfigItems(configPath))
         {
@@ -92,6 +103,30 @@ internal static partial class GitInfo
                 _gitDirectory = gitDirectory = gitPath;
                 _foundGitDirectory = true;
                 return true;
+            }
+
+            // Check if .git is a file (git worktree)
+            if (File.Exists(gitPath))
+            {
+                string gitFileContent = File.ReadAllText(gitPath).Trim();
+
+                // Git worktree .git file format: "gitdir: /path/to/worktree"
+                if (gitFileContent.StartsWith("gitdir: ", StringComparison.Ordinal))
+                {
+                    string worktreeGitDir = gitFileContent.Substring(8).Trim();
+
+                    if (Directory.Exists(worktreeGitDir))
+                    {
+                        if (Settings.Debug)
+                        {
+                            AnsiConsole.MarkupLineInterpolated($"[yellow]Git: found worktree in {worktreeGitDir}[/]");
+                        }
+
+                        _gitDirectory = gitDirectory = worktreeGitDir;
+                        _foundGitDirectory = true;
+                        return true;
+                    }
+                }
             }
 
             if (Settings.Debug)
