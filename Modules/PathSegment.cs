@@ -67,20 +67,31 @@ internal readonly struct PathSegment : ISegment
         if (GitInfo.TryFindGitFolder(currentDirectory, out var gitDirectory))
         {
             // currentDirectory = /path/to/repo[/child]
-            // gitDirectory = /path/to/repo/.git
+            // gitDirectory = /path/to/repo/.git or /path/to/repo/.git/worktrees/name
             // ----------------------------------------------
-            // repositoryDirectory = /path/to/repo[/child]
-            // repositoryParentDirectory = /path/to
+            // repositoryDirectory = /path/to/repo or /path/to/repo/.git/worktrees
+            // repositoryParentDirectory = /path/to or /path/to/repo/.git
 
-            if (Path.GetDirectoryName(gitDirectory) is { } repositoryDirectory &&
-                Path.GetDirectoryName(repositoryDirectory) is { } repositoryParentDirectory)
+            var repositoryDirectory = Path.GetDirectoryName(gitDirectory);
+
+            // For worktrees, gitDirectory is .git/worktrees/<name>, so we need to go up twice more
+            if (repositoryDirectory != null && repositoryDirectory.EndsWith("worktrees", StringComparison.Ordinal))
             {
-                string displayPath = Path.GetRelativePath(repositoryParentDirectory, currentDirectory.ToString());
+                repositoryDirectory = Path.GetDirectoryName(Path.GetDirectoryName(repositoryDirectory));
+            }
 
-                if (displayPath.Length > 0)
+            if (repositoryDirectory != null)
+            {
+                var repositoryParentDirectory = Path.GetDirectoryName(repositoryDirectory);
+                if (repositoryParentDirectory != null)
                 {
-                    _isGitRepo = true;
-                    _currentDirectoryDisplay = displayPath;
+                    string displayPath = Path.GetRelativePath(repositoryParentDirectory, currentDirectory.ToString());
+
+                    if (displayPath.Length > 0)
+                    {
+                        _isGitRepo = true;
+                        _currentDirectoryDisplay = displayPath;
+                    }
                 }
             }
         }
@@ -166,16 +177,8 @@ internal readonly struct PathSegment : ISegment
 
     public void Append(ref ValueStringBuilder sb)
     {
-        if (_isFileSystem && !Path.Exists(_currentDirectoryExpanded.ToString()))
-        {
-            // is file system, but doesn't exist
-            // e.g. directory was deleted from under us
-            sb.Append("[red]");
-        }
-        else
-        {
-            sb.Append("[aqua]");
-        }
+        // Skip Path.Exists check for performance - rare edge case not worth the I/O cost
+        sb.Append("[aqua]");
 
         sb.Append(_isGitRepo ? GitPrefix : DefaultPrefix);
 

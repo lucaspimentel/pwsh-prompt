@@ -14,11 +14,15 @@ namespace Prompt;
 
 internal static partial class GitInfo
 {
-    private static string? _gitDirectory;
-    private static bool? _foundGitDirectory;
-
     public static StringSegment GetBranchName(string path)
     {
+        // Check environment variable cache first
+        var cachedBranch = Environment.GetEnvironmentVariable("PROMPT_GIT_BRANCH_CACHED");
+        if (!string.IsNullOrEmpty(cachedBranch))
+        {
+            return cachedBranch;
+        }
+
         if (!TryFindGitFolder(path, out var gitFolder))
         {
             return StringSegment.Empty;
@@ -73,15 +77,21 @@ internal static partial class GitInfo
             branch = branch.Subsegment(11);
         }
 
+        // Write to environment variable for PowerShell to cache
+        Environment.SetEnvironmentVariable("PROMPT_GIT_BRANCH_OUT", branch.ToString());
+        Environment.SetEnvironmentVariable("PROMPT_GIT_DIR_OUT", gitFolder);
+
         return branch;
     }
 
     public static bool TryFindGitFolder(ReadOnlySpan<char> path, out string gitDirectory)
     {
-        if (_foundGitDirectory is { } found && _gitDirectory is not null)
+        // Check environment variable cache first
+        var cachedGitDir = Environment.GetEnvironmentVariable("PROMPT_GIT_DIR_CACHED");
+        if (!string.IsNullOrEmpty(cachedGitDir))
         {
-            gitDirectory = _gitDirectory;
-            return found;
+            gitDirectory = cachedGitDir;
+            return true;
         }
 
         if (Settings.Debug)
@@ -100,8 +110,7 @@ internal static partial class GitInfo
                     AnsiConsole.MarkupLineInterpolated($"[yellow]Git: found in {gitPath}[/]");
                 }
 
-                _gitDirectory = gitDirectory = gitPath;
-                _foundGitDirectory = true;
+                gitDirectory = gitPath;
                 return true;
             }
 
@@ -122,8 +131,7 @@ internal static partial class GitInfo
                             AnsiConsole.MarkupLineInterpolated($"[yellow]Git: found worktree in {worktreeGitDir}[/]");
                         }
 
-                        _gitDirectory = gitDirectory = worktreeGitDir;
-                        _foundGitDirectory = true;
+                        gitDirectory = worktreeGitDir;
                         return true;
                     }
                 }
@@ -138,8 +146,7 @@ internal static partial class GitInfo
 
             if (path.Length == 0)
             {
-                _gitDirectory = gitDirectory = string.Empty;
-                _foundGitDirectory = false;
+                gitDirectory = string.Empty;
                 return false;
             }
         }
@@ -160,19 +167,27 @@ internal static partial class GitInfo
         ConfigItem? currentItem = null;
 
         var regex = GitConfigRegex();
-        string[] lines = File.ReadAllLines(configFile);
 
-        foreach (string line in lines)
+        // Use File.ReadLines to avoid loading entire file into memory
+        foreach (string line in File.ReadLines(configFile))
         {
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
             if (line[0] == '\t')
             {
                 if (currentItem != null)
                 {
-                    string[] keyValue = line[1..].Split(" = ", StringSplitOptions.RemoveEmptyEntries);
-
-                    if (keyValue[0] == "merge")
+                    int equalsIndex = line.IndexOf(" = ", StringComparison.Ordinal);
+                    if (equalsIndex > 1)
                     {
-                        currentItem.Merge = keyValue[1];
+                        ReadOnlySpan<char> key = line.AsSpan(1, equalsIndex - 1);
+                        if (key.SequenceEqual("merge"))
+                        {
+                            currentItem.Merge = line.Substring(equalsIndex + 3);
+                        }
                     }
                 }
 
@@ -183,11 +198,12 @@ internal static partial class GitInfo
 
             if (match.Success)
             {
-                yield return new ConfigItem
+                currentItem = new ConfigItem
                              {
                                  Type = match.Groups[1].Value,
                                  Name = match.Groups[2].Value
                              };
+                yield return currentItem;
             }
         }
     }

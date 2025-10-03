@@ -54,7 +54,27 @@ $$"""
       function global:Prompt {
           $origDollarQuestion = $global:?
           $origLastExitCode = $global:LASTEXITCODE
-  
+
+          # Pass cached git info via environment variables if still in same directory and HEAD unchanged
+          $headChanged = $false
+          if ($env:PROMPT_GIT_CACHE_DIR -eq $PWD.Path -and $env:PROMPT_GIT_DIR) {
+              $headFile = Join-Path $env:PROMPT_GIT_DIR "HEAD"
+              if (Test-Path $headFile) {
+                  $currentHead = Get-Content $headFile -Raw
+                  if ($currentHead -ne $env:PROMPT_GIT_HEAD) {
+                      $headChanged = $true
+                  }
+              }
+          }
+
+          if ($env:PROMPT_GIT_CACHE_DIR -eq $PWD.Path -and -not $headChanged) {
+              $env:PROMPT_GIT_DIR_CACHED = $env:PROMPT_GIT_DIR
+              $env:PROMPT_GIT_BRANCH_CACHED = $env:PROMPT_GIT_BRANCH
+          } else {
+              $env:PROMPT_GIT_DIR_CACHED = ""
+              $env:PROMPT_GIT_BRANCH_CACHED = ""
+          }
+
           $arguments = @(
               "prompt",
               "--terminal-width=$($Host.UI.RawUI.WindowSize.Width)",
@@ -67,10 +87,21 @@ $$"""
   
           # Invoke <Prompt>
           $promptText = Invoke-Native -Executable '{{processName}}' -Arguments $arguments
-  
+
+          # Cache git info for next prompt
+          $env:PROMPT_GIT_CACHE_DIR = $PWD.Path
+          $env:PROMPT_GIT_DIR = $env:PROMPT_GIT_DIR_OUT
+          $env:PROMPT_GIT_BRANCH = $env:PROMPT_GIT_BRANCH_OUT
+          if ($env:PROMPT_GIT_DIR_OUT) {
+              $headFile = Join-Path $env:PROMPT_GIT_DIR_OUT "HEAD"
+              if (Test-Path $headFile) {
+                  $env:PROMPT_GIT_HEAD = Get-Content $headFile -Raw
+              }
+          }
+
           # notify PSReadLine of a multiline prompt
           Set-PSReadLineOption -ExtraPromptLineCount (($promptText | Measure-Object -Line).Lines - 1)
-  
+
           # Return the prompt
           $promptText
   
