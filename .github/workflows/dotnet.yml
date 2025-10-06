@@ -25,8 +25,10 @@ jobs:
       run: dotnet build --no-restore
     - name: Test
       run: dotnet test --no-build --verbosity normal
+    # Note: --no-build flag removed due to .NET 10 RC1 bug with Native AOT compilation
+    # Error: "The PrivateSdkAssemblies ItemGroup is required for _ComputeAssembliesToCompileToNative"
     - name: Publish win-x64
-      run: dotnet publish --no-build -c release -r win-x64
+      run: dotnet publish -c release -r win-x64
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v4
       with:
