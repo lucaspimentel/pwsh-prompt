@@ -10,7 +10,8 @@ public readonly record struct Arguments(
     bool CurrentDirectoryIsFileSystem,
     int LastCommandDurationMs,
     int LastCommandExitCode,
-    bool LastCommandState)
+    bool LastCommandState,
+    bool SimpleMode)
 {
     private const string TerminalWidthOption = "--terminal-width=";
     private const string CurrentDirectoryOption = "--current-directory=";
@@ -18,6 +19,7 @@ public readonly record struct Arguments(
     private const string LastCommandDurationOption = "--last-command-duration=";
     private const string LastCommandExitCodeOption = "--last-command-exit-code=";
     private const string LastCommandStateOption = "--last-command-state=";
+    private const string SimpleModeOption = "--simple";
 
     public static Arguments Parse(Span<string> args)
     {
@@ -27,10 +29,16 @@ public readonly record struct Arguments(
         int lastCommandDurationMs = 0;
         int lastCommandExitCode = 0;
         bool lastCommandState = true;
+        bool simpleMode = false;
 
         foreach (string arg in args)
         {
-            if (arg.StartsWith(TerminalWidthOption, StringComparison.Ordinal))
+            if (arg.Equals(SimpleModeOption, StringComparison.Ordinal))
+            {
+                simpleMode = true;
+                break;
+            }
+            else if (arg.StartsWith(TerminalWidthOption, StringComparison.Ordinal))
             {
                 if (int.TryParse(arg.AsSpan(TerminalWidthOption.Length), out var result))
                 {
@@ -93,6 +101,7 @@ public readonly record struct Arguments(
             currentDirectoryIsFileSystem,
             lastCommandDurationMs,
             lastCommandExitCode,
-            lastCommandState);
+            lastCommandState,
+            simpleMode);
     }
 }

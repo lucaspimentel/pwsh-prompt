@@ -54,57 +54,81 @@ internal static class Program
                 // Console.WriteLine($"{pathSegment}{gitSegment}{fillerSegment}{durationSegment}{dateTimeSegment}");
                 // Console.WriteLine($"{osSegment}{shellSegment}{promptSegment}");
 
-                var newLineSegment = new NewLineSegment();
-                var hostSegment = new HostSegment();
-                var gitSegment = new GitSegment(state.CurrentDirectory.ToString());
-                var lastCommandExitCodeSegment = new LastCommandExitCodeSegment(state.LastCommandExitCode, state.LastCommandState);
-                var lastCommandDurationSegment = new LastCommandDurationSegment(state.LastCommandDurationMs, Settings.LastCommandDurationThresholdMs);
-                var dateTimeSegment = new DateTimeSegment();
-                var osSegment = new OsSegment();
-                var shellSegment = new StringSegment(" pwsh");
-                var promptSegment = new PromptSegment(Settings.Prompt);
+                ISegment[] line1;
 
-                int maxPathLength = state.TerminalWidth
-                                   - hostSegment.UnformattedLength
-                                   - gitSegment.UnformattedLength
-                                   - lastCommandExitCodeSegment.UnformattedLength
-                                   - lastCommandDurationSegment.UnformattedLength
-                                   - dateTimeSegment.UnformattedLength
-                                   - 3;
+                if (state.SimpleMode)
+                {
+                    var hostSegment = new HostSegment();
+                    var gitSegment = new GitSegment(state.CurrentDirectory.ToString());
 
-                var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryIsFileSystem, maxPathLength);
+                    int maxPathLength = state.TerminalWidth
+                                       - hostSegment.UnformattedLength
+                                       - gitSegment.UnformattedLength
+                                       - 1;
 
-                var fillerWidth = state.TerminalWidth
-                                  - hostSegment.UnformattedLength
-                                  - pathSegment.UnformattedLength
-                                  - gitSegment.UnformattedLength
-                                  - lastCommandExitCodeSegment.UnformattedLength
-                                  - lastCommandDurationSegment.UnformattedLength
-                                  - dateTimeSegment.UnformattedLength
-                                  - 2;
+                    var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryIsFileSystem, maxPathLength);
 
-                var fillerSegment = new StringSegment(fillerWidth <= 0 ? "" : new string(' ', fillerWidth));
+                    line1 =
+                    [
+                        pathSegment,
+                        gitSegment,
+                        hostSegment,
+                    ];
+                }
+                else
+                {
+                    var newLineSegment = new NewLineSegment();
+                    var hostSegment = new HostSegment();
+                    var gitSegment = new GitSegment(state.CurrentDirectory.ToString());
+                    var lastCommandExitCodeSegment = new LastCommandExitCodeSegment(state.LastCommandExitCode, state.LastCommandState);
+                    var lastCommandDurationSegment = new LastCommandDurationSegment(state.LastCommandDurationMs, Settings.LastCommandDurationThresholdMs);
+                    var dateTimeSegment = new DateTimeSegment();
+                    var osSegment = new OsSegment();
+                    var shellSegment = new StringSegment(" pwsh");
+                    var promptSegment = new PromptSegment(Settings.Prompt);
 
-                var line1 = new ISegment[]
-                            {
-                                newLineSegment,
+                    int maxPathLength = state.TerminalWidth
+                                       - hostSegment.UnformattedLength
+                                       - gitSegment.UnformattedLength
+                                       - lastCommandExitCodeSegment.UnformattedLength
+                                       - lastCommandDurationSegment.UnformattedLength
+                                       - dateTimeSegment.UnformattedLength
+                                       - 3;
 
-                                pathSegment,
-                                gitSegment,
-                                hostSegment,
+                    var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryIsFileSystem, maxPathLength);
 
-                                fillerSegment,
+                    var fillerWidth = state.TerminalWidth
+                                      - hostSegment.UnformattedLength
+                                      - pathSegment.UnformattedLength
+                                      - gitSegment.UnformattedLength
+                                      - lastCommandExitCodeSegment.UnformattedLength
+                                      - lastCommandDurationSegment.UnformattedLength
+                                      - dateTimeSegment.UnformattedLength
+                                      - 2;
 
-                                lastCommandExitCodeSegment,
-                                lastCommandDurationSegment,
-                                dateTimeSegment,
+                    var fillerSegment = new StringSegment(fillerWidth <= 0 ? "" : new string(' ', fillerWidth));
 
-                                newLineSegment,
+                    line1 =
+                    [
+                        newLineSegment,
 
-                                osSegment,
-                                shellSegment,
-                                promptSegment,
-                            };
+                        pathSegment,
+                        gitSegment,
+                        hostSegment,
+
+                        fillerSegment,
+
+                        lastCommandExitCodeSegment,
+                        lastCommandDurationSegment,
+                        dateTimeSegment,
+
+                        newLineSegment,
+
+                        osSegment,
+                        shellSegment,
+                        promptSegment,
+                    ];
+                }
 
                 Span<char> buffer = stackalloc char[1024];
                 var promptBuilder = new ValueStringBuilder(buffer);
