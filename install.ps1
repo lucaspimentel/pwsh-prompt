@@ -37,9 +37,9 @@ Write-Host "Building pwsh-prompt for $rid..." -ForegroundColor Cyan
 
 # Build the project
 $projectPath = Join-Path $PSScriptRoot 'pwsh-prompt.csproj'
-$publishPath = Join-Path $PSScriptRoot 'bin' 'Release' 'net10.0' $rid 'publish'
+$publishPath = Join-Path $PSScriptRoot 'publish'
 
-dotnet publish $projectPath -c Release -r $rid
+dotnet publish $projectPath -c Release -r $rid --output $publishPath
 
 if ($LASTEXITCODE -ne 0) {
     throw "Build failed with exit code $LASTEXITCODE"
