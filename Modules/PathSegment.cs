@@ -17,7 +17,7 @@ internal readonly struct PathSegment : ISegment
     private readonly bool _isTruncated;
     private readonly bool _isGitRepo;
 
-    public PathSegment(Microsoft.Extensions.Primitives.StringSegment currentDirectory, bool isFileSystem, int maxPathLength)
+    public PathSegment(Microsoft.Extensions.Primitives.StringSegment currentDirectory, bool isFileSystem, int maxPathLength, bool simpleMode)
     {
         _currentDirectoryDisplay = _currentDirectoryExpanded = currentDirectory;
         _isFileSystem = isFileSystem;
@@ -66,31 +66,36 @@ internal readonly struct PathSegment : ISegment
 
         if (GitInfo.TryFindGitFolder(currentDirectory, out var gitDirectory))
         {
-            // currentDirectory = /path/to/repo[/child]
-            // gitDirectory = /path/to/repo/.git or /path/to/repo/.git/worktrees/name
-            // ----------------------------------------------
-            // repositoryDirectory = /path/to/repo or /path/to/repo/.git/worktrees
-            // repositoryParentDirectory = /path/to or /path/to/repo/.git
+            _isGitRepo = true;
 
-            var repositoryDirectory = Path.GetDirectoryName(gitDirectory);
-
-            // For worktrees, gitDirectory is .git/worktrees/<name>, so we need to go up twice more
-            if (repositoryDirectory != null && repositoryDirectory.EndsWith("worktrees", StringComparison.Ordinal))
+            // In simple mode, keep the full path instead of shortening to repo root
+            if (!simpleMode)
             {
-                repositoryDirectory = Path.GetDirectoryName(Path.GetDirectoryName(repositoryDirectory));
-            }
+                // currentDirectory = /path/to/repo[/child]
+                // gitDirectory = /path/to/repo/.git or /path/to/repo/.git/worktrees/name
+                // ----------------------------------------------
+                // repositoryDirectory = /path/to/repo or /path/to/repo/.git/worktrees
+                // repositoryParentDirectory = /path/to or /path/to/repo/.git
 
-            if (repositoryDirectory != null)
-            {
-                var repositoryParentDirectory = Path.GetDirectoryName(repositoryDirectory);
-                if (repositoryParentDirectory != null)
+                var repositoryDirectory = Path.GetDirectoryName(gitDirectory);
+
+                // For worktrees, gitDirectory is .git/worktrees/<name>, so we need to go up twice more
+                if (repositoryDirectory != null && repositoryDirectory.EndsWith("worktrees", StringComparison.Ordinal))
                 {
-                    string displayPath = Path.GetRelativePath(repositoryParentDirectory, currentDirectory.ToString());
+                    repositoryDirectory = Path.GetDirectoryName(Path.GetDirectoryName(repositoryDirectory));
+                }
 
-                    if (displayPath.Length > 0)
+                if (repositoryDirectory != null)
+                {
+                    var repositoryParentDirectory = Path.GetDirectoryName(repositoryDirectory);
+                    if (repositoryParentDirectory != null)
                     {
-                        _isGitRepo = true;
-                        _currentDirectoryDisplay = displayPath;
+                        string displayPath = Path.GetRelativePath(repositoryParentDirectory, currentDirectory.ToString());
+
+                        if (displayPath.Length > 0)
+                        {
+                            _currentDirectoryDisplay = displayPath;
+                        }
                     }
                 }
             }

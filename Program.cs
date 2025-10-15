@@ -66,7 +66,7 @@ internal static class Program
                                        - gitSegment.UnformattedLength
                                        - 1;
 
-                    var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryIsFileSystem, maxPathLength);
+                    var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryIsFileSystem, maxPathLength, simpleMode: true);
 
                     line1 =
                     [
@@ -95,7 +95,7 @@ internal static class Program
                                        - dateTimeSegment.UnformattedLength
                                        - 3;
 
-                    var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryIsFileSystem, maxPathLength);
+                    var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryIsFileSystem, maxPathLength, simpleMode: false);
 
                     var fillerWidth = state.TerminalWidth
                                       - hostSegment.UnformattedLength
