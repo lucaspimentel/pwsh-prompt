@@ -49,17 +49,26 @@ dotnet publish -c Release -r win-x64 --output ./publish
 dotnet publish -c Release -r linux-x64 --output ./publish
 ```
 
-## How It Works
+## Architecture
 
-The prompt runs as a native executable on every prompt render. To achieve maximum performance:
+The prompt uses a modular segment system where each visual element (path, git branch, exit code, etc.) implements the `ISegment` interface. The application runs in two modes:
 
-- **Native AOT compilation** eliminates JIT overhead
-- **Environment variable caching** avoids repeated file I/O for git information
-- **Stack-allocated buffers** minimize heap allocations
-- **Smart truncation** calculates exact width for path display
+1. **init mode**: Generates PowerShell initialization code to install the prompt
+2. **prompt mode**: Renders the actual prompt on every invocation
 
-Git information is cached in PowerShell environment variables between prompts. The cache is invalidated when you change directories or when `.git/HEAD` changes (checkout, commit, rebase, etc.).
+### Performance
+
+Since this runs on every prompt render, performance is critical:
+
+- **Native AOT compilation** eliminates JIT overhead for instant startup
+- **Environment variable caching** avoids repeated git file I/O (cache invalidates on directory change or `.git/HEAD` modification)
+- **Stack-allocated buffers** minimize heap allocations via `ValueStringBuilder`
+- **Smart truncation** calculates exact widths for optimal path display
+
+The PowerShell profile caches git information between prompts, avoiding file system operations when the branch hasn't changed.
 
 ## License
 
-Personal project by Lucas Pimentel.
+MIT License - see [LICENSE](LICENSE) file for details.
+
+Copyright (c) 2025 Lucas Pimentel
