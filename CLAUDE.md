@@ -6,16 +6,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a custom PowerShell prompt written in C# that displays contextual information about the current directory, git repository, last command status, and system information. It's compiled as a native AOT binary for fast startup times.
 
+## Project Structure
+
+```
+pwsh-prompt/
+├── src/
+│   └── pwsh-prompt/          # Main C# project
+│       ├── Modules/          # Segment implementations (ISegment)
+│       ├── Program.cs        # Entry point and mode routing
+│       ├── Arguments.cs      # Command-line argument parsing
+│       ├── GitInfo.cs        # Git repository detection and caching
+│       ├── Init.cs           # PowerShell initialization script generator
+│       ├── ValueStringBuilder.cs  # High-performance string builder
+│       └── pwsh-prompt.csproj
+├── install-local.ps1         # Installation script
+├── pwsh-prompt.slnx          # Solution file
+└── CLAUDE.md                 # This file
+```
+
 ## Build and Installation
 
-- **Restore dependencies**: `dotnet restore`
-- **Build**: `dotnet build`
-- **Quick build test**: `dotnet build -c Release -f net10.0` (verifies code compiles)
-- **Publish (Windows)**: `dotnet publish -c release -r win-x64 --output ./publish`
-- **Publish (Linux)**: `dotnet publish -c release -r linux-x64 --output ./publish`
-- **Install**: `./install.ps1` - builds and installs to `~/.local/bin/pwsh-prompt`
+- **Restore dependencies**: `dotnet restore src/pwsh-prompt`
+- **Build**: `dotnet build src/pwsh-prompt`
+- **Quick build test**: `dotnet build src/pwsh-prompt -c Release -f net10.0` (verifies code compiles)
+- **Publish (Windows)**: `dotnet publish src/pwsh-prompt -c release -r win-x64 --output ./publish`
+- **Publish (Linux)**: `dotnet publish src/pwsh-prompt -c release -r linux-x64 --output ./publish`
+- **Install**: `./install-local.ps1` - builds and installs to `~/.local/bin/pwsh-prompt`
 
-The `install.ps1` script handles platform detection, building, and installation automatically.
+The `install-local.ps1` script handles platform detection, building, and installation automatically.
 
 ## Architecture
 
@@ -29,16 +47,16 @@ The application has two modes:
 
 ### Core Components
 
-- **Program.cs**: Entry point that routes between init/prompt modes and orchestrates segment rendering. Contains conditional logic for simple vs normal mode rendering (lines 59-136).
-- **Arguments.cs**: Parses command-line arguments passed from PowerShell. When `--simple` is detected, parsing breaks early to skip unnecessary parameters (lines 36-39).
-- **Init.cs**: Generates PowerShell script that installs the prompt function
-- **GitInfo.cs**: Traverses directory tree to find .git folder and parse HEAD/config files to determine current branch
-- **ValueStringBuilder**: High-performance string building using stack-allocated buffers
-- **install.ps1**: Cross-platform installation script that builds native binary and installs to `~/.local/bin`
+- **src/pwsh-prompt/Program.cs**: Entry point that routes between init/prompt modes and orchestrates segment rendering. Contains conditional logic for simple vs normal mode rendering (lines 59-136).
+- **src/pwsh-prompt/Arguments.cs**: Parses command-line arguments passed from PowerShell. When `--simple` is detected, parsing breaks early to skip unnecessary parameters (lines 36-39).
+- **src/pwsh-prompt/Init.cs**: Generates PowerShell script that installs the prompt function
+- **src/pwsh-prompt/GitInfo.cs**: Traverses directory tree to find .git folder and parse HEAD/config files to determine current branch
+- **src/pwsh-prompt/ValueStringBuilder**: High-performance string building using stack-allocated buffers
+- **install-local.ps1**: Cross-platform installation script that builds native binary and installs to `~/.local/bin`
 
 ### Segment System
 
-All visual elements implement `ISegment` interface (in `Modules/`):
+All visual elements implement `ISegment` interface (in `src/pwsh-prompt/Modules/`):
 - Each segment calculates its own `UnformattedLength` (for layout) and formats itself via `Append(ref ValueStringBuilder)`
 - Segments use Spectre.Console markup syntax for colors (e.g., `[aqua]text[/]`)
 - Main segments: `PathSegment`, `GitSegment`, `HostSegment`, `LastCommandExitCodeSegment`, `LastCommandDurationSegment`, `DateTimeSegment`, `OsSegment`, `PromptSegment`
@@ -68,9 +86,9 @@ The prompt rendering varies by mode:
 
 **Important**: The C# process starts fresh on every prompt invocation, so static caching doesn't work. Instead, caching happens via PowerShell environment variables:
 
-- **PowerShell side** (Init.cs): Before invoking the C# binary, checks if still in same directory and if `.git/HEAD` file is unchanged. If so, passes cached git directory and branch name via `PROMPT_GIT_DIR_CACHED` and `PROMPT_GIT_BRANCH_CACHED` environment variables. After invocation, reads `PROMPT_GIT_DIR_OUT` and `PROMPT_GIT_BRANCH_OUT` from the C# process and stores them along with the HEAD file content for next prompt.
+- **PowerShell side** (src/pwsh-prompt/Init.cs): Before invoking the C# binary, checks if still in same directory and if `.git/HEAD` file is unchanged. If so, passes cached git directory and branch name via `PROMPT_GIT_DIR_CACHED` and `PROMPT_GIT_BRANCH_CACHED` environment variables. After invocation, reads `PROMPT_GIT_DIR_OUT` and `PROMPT_GIT_BRANCH_OUT` from the C# process and stores them along with the HEAD file content for next prompt.
 
-- **C# side** (GitInfo.cs): `TryFindGitFolder()` and `GetBranchName()` check the `*_CACHED` environment variables first. If found, they skip all file I/O. After computing fresh values, they write to `*_OUT` environment variables for PowerShell to cache.
+- **C# side** (src/pwsh-prompt/GitInfo.cs): `TryFindGitFolder()` and `GetBranchName()` check the `*_CACHED` environment variables first. If found, they skip all file I/O. After computing fresh values, they write to `*_OUT` environment variables for PowerShell to cache.
 
 - **Cache invalidation**: The cache is invalidated when changing directories or when the `.git/HEAD` file content changes (which happens on checkout, commit, rebase, etc).
 

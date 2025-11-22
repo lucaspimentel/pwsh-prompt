@@ -36,7 +36,7 @@ $rid = if ($IsWindows) {
 Write-Host "Building pwsh-prompt for $rid..." -ForegroundColor Cyan
 
 # Build the project
-$projectPath = Join-Path $PSScriptRoot 'pwsh-prompt.csproj'
+$projectPath = Join-Path $PSScriptRoot 'src' 'pwsh-prompt' 'pwsh-prompt.csproj'
 $publishPath = Join-Path $PSScriptRoot 'publish'
 
 dotnet publish $projectPath -c Release -r $rid --output $publishPath

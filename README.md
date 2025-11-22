@@ -16,7 +16,7 @@ A fast, customizable PowerShell prompt written in C# and compiled as a native AO
 Run the installation script:
 
 ```powershell
-./install.ps1
+./install-local.ps1
 ```
 
 This will build the native binary and install it to `~/.local/bin/pwsh-prompt`.
@@ -40,13 +40,32 @@ pwsh-prompt prompt --simple
 
 ```powershell
 # Quick build test
-dotnet build -c Release -f net10.0
+dotnet build src/pwsh-prompt -c Release -f net10.0
 
 # Publish for Windows
-dotnet publish -c Release -r win-x64 --output ./publish
+dotnet publish src/pwsh-prompt -c Release -r win-x64 --output ./publish
 
 # Publish for Linux
-dotnet publish -c Release -r linux-x64 --output ./publish
+dotnet publish src/pwsh-prompt -c Release -r linux-x64 --output ./publish
+
+# Or build via solution
+dotnet build pwsh-prompt.slnx
+```
+
+## Project Structure
+
+```
+pwsh-prompt/
+├── src/
+│   └── pwsh-prompt/          # Main C# project
+│       ├── Modules/          # Segment implementations (ISegment)
+│       ├── Program.cs        # Entry point and mode routing
+│       ├── Arguments.cs      # Command-line argument parsing
+│       ├── GitInfo.cs        # Git repository detection and caching
+│       ├── Init.cs           # PowerShell initialization script generator
+│       └── ...               # Other core files
+├── install-local.ps1         # Installation script
+└── pwsh-prompt.slnx          # Solution file
 ```
 
 ## Architecture
