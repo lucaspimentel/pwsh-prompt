@@ -10,6 +10,10 @@ This is a custom PowerShell prompt written in C# that displays contextual inform
 
 ```
 pwsh-prompt/
+├── .github/
+│   └── workflows/
+│       ├── dotnet.yml        # CI workflow (build and test)
+│       └── release.yml       # Release workflow (builds binaries on git tag)
 ├── src/
 │   └── pwsh-prompt/          # Main C# project
 │       ├── Modules/          # Segment implementations (ISegment)
@@ -19,9 +23,11 @@ pwsh-prompt/
 │       ├── Init.cs           # PowerShell initialization script generator
 │       ├── ValueStringBuilder.cs  # High-performance string builder
 │       └── pwsh-prompt.csproj
-├── install-local.ps1         # Installation script
+├── install-local.ps1         # Build from source and install locally
+├── install-remote.ps1        # Download from GitHub releases and install
 ├── pwsh-prompt.slnx          # Solution file
-└── CLAUDE.md                 # This file
+├── CLAUDE.md                 # This file
+└── README.md                 # User documentation
 ```
 
 ## Build and Installation
@@ -93,3 +99,23 @@ The prompt rendering varies by mode:
 - **Cache invalidation**: The cache is invalidated when changing directories or when the `.git/HEAD` file content changes (which happens on checkout, commit, rebase, etc).
 
 This approach eliminates file I/O on repeated prompts in the same branch while ensuring correctness when the branch changes.
+
+## Releases
+
+The project uses GitHub Actions to automatically create releases when a git tag is pushed.
+
+### Creating a Release
+
+1. **Tag the commit**: `git tag v1.0.0` (use semantic versioning)
+2. **Push the tag**: `git push origin v1.0.0`
+3. **GitHub Actions**: The release workflow (`.github/workflows/release.yml`) will automatically:
+   - Build native binaries for Windows (win-x64) and Linux (linux-x64)
+   - Create release archives (`.zip` for Windows, `.tar.gz` for Linux)
+   - Generate SHA256 checksums
+   - Create a GitHub release with the binaries and checksums attached
+   - Auto-generate release notes from commits
+
+### Installation Scripts
+
+- **install-remote.ps1**: Downloads pre-built binaries from GitHub releases (no build tools required)
+- **install-local.ps1**: Builds from source and installs locally

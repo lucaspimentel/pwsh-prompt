@@ -20,17 +20,17 @@ jobs:
       with:
         dotnet-version: 10.0.x
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore src/pwsh-prompt
     - name: Build
-      run: dotnet build --no-restore
+      run: dotnet build src/pwsh-prompt --no-restore
     - name: Test
       run: dotnet test --no-build --verbosity normal
     # Note: --no-build flag removed due to .NET 10 RC1 bug with Native AOT compilation
     # Error: "The PrivateSdkAssemblies ItemGroup is required for _ComputeAssembliesToCompileToNative"
     - name: Publish win-x64
-      run: dotnet publish -c release -r win-x64
+      run: dotnet publish src/pwsh-prompt -c release -r win-x64
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v4
       with:
-        path: bin/release/net10.0/win-x64/publish/pwsh-prompt.exe
+        path: src/pwsh-prompt/bin/release/net10.0/win-x64/publish/pwsh-prompt.exe
 

@@ -13,7 +13,23 @@ A fast, customizable PowerShell prompt written in C# and compiled as a native AO
 
 ## Installation
 
-Run the installation script:
+### Install from GitHub Release (Recommended)
+
+No build tools or .NET SDK required:
+
+```powershell
+irm https://raw.githubusercontent.com/lucaspimentel/pwsh-prompt/main/install-remote.ps1 | iex
+```
+
+Or to install a specific version:
+
+```powershell
+$version = "1.0.0"; irm https://raw.githubusercontent.com/lucaspimentel/pwsh-prompt/main/install-remote.ps1 | iex
+```
+
+### Install from Source
+
+Clone the repository and run the installation script:
 
 ```powershell
 ./install-local.ps1
@@ -21,7 +37,9 @@ Run the installation script:
 
 This will build the native binary and install it to `~/.local/bin/pwsh-prompt`.
 
-Then add this line to your PowerShell profile (`$PROFILE`):
+### Setup
+
+Add this line to your PowerShell profile (`$PROFILE`):
 
 ```powershell
 Invoke-Expression (& ~/.local/bin/pwsh-prompt init)
@@ -64,7 +82,8 @@ pwsh-prompt/
 │       ├── GitInfo.cs        # Git repository detection and caching
 │       ├── Init.cs           # PowerShell initialization script generator
 │       └── ...               # Other core files
-├── install-local.ps1         # Installation script
+├── install-local.ps1         # Build from source and install
+├── install-remote.ps1        # Download from GitHub releases and install
 └── pwsh-prompt.slnx          # Solution file
 ```
 
