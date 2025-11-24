@@ -12,7 +12,7 @@ This is a custom PowerShell prompt written in C# that displays contextual inform
 pwsh-prompt/
 ├── .github/
 │   └── workflows/
-│       ├── dotnet.yml        # CI workflow (build and test)
+│       ├── ci.yml            # CI workflow (build and test on Windows + Linux)
 │       └── release.yml       # Release workflow (builds binaries on git tag)
 ├── src/
 │   └── pwsh-prompt/          # Main C# project

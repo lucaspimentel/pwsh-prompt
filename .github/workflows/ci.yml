@@ -1,20 +1,39 @@
 # This workflow will build a .NET project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
 
-name: Test and Build
+name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+  workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: windows-latest
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: ubuntu-latest
+            rid: linux-x64
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
@@ -22,13 +41,14 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore src/pwsh-prompt
     - name: Build
-      run: dotnet build src/pwsh-prompt --no-restore
+      run: dotnet build src/pwsh-prompt -c Release --no-restore
     - name: Test
-      run: dotnet test --no-build --verbosity normal
-    - name: Publish win-x64
-      run: dotnet publish src/pwsh-prompt --no-build -c release -r win-x64 -o publish
-    - name: Upload a Build Artifact
+      run: dotnet test -c Release --no-build --verbosity normal
+    - name: Publish
+      run: dotnet publish src/pwsh-prompt --no-build -c Release -r ${{ matrix.rid }} -o publish
+    - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        path: src/pwsh-prompt/publish/pwsh-prompt.exe
+        name: pwsh-prompt-${{ matrix.rid }}
+        path: publish/
 
