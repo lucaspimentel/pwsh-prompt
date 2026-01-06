@@ -16,7 +16,7 @@ internal readonly struct DateTimeSegment : ISegment
     public void Append(ref ValueStringBuilder sb)
     {
         sb.Append(" at ");
-        sb.AppendSpanFormattable(_now, "yyyy-mm-dd h:mm tt");
+        sb.AppendSpanFormattable(_now, "yyyy-MM-dd h:mm tt");
     }
 
     public override string ToString()
