@@ -76,7 +76,7 @@ dotnet build pwsh-prompt.slnx
 pwsh-prompt/
 ├── src/
 │   └── pwsh-prompt/          # Main C# project
-│       ├── Modules/          # Segment implementations (ISegment)
+│       ├── Segments/         # Segment implementations (ISegment)
 │       ├── Program.cs        # Entry point and mode routing
 │       ├── Arguments.cs      # Command-line argument parsing
 │       ├── GitInfo.cs        # Git repository detection and caching

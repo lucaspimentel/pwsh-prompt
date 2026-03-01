@@ -16,7 +16,7 @@ pwsh-prompt/
 │       └── release.yml       # Release workflow (builds binaries on git tag)
 ├── src/
 │   └── pwsh-prompt/          # Main C# project
-│       ├── Modules/          # Segment implementations (ISegment)
+│       ├── Segments/         # Segment implementations (ISegment)
 │       ├── Program.cs        # Entry point and mode routing
 │       ├── Arguments.cs      # Command-line argument parsing
 │       ├── GitInfo.cs        # Git repository detection and caching
@@ -53,8 +53,8 @@ The application has two modes:
 
 ### Core Components
 
-- **src/pwsh-prompt/Program.cs**: Entry point that routes between init/prompt modes and orchestrates segment rendering. Contains conditional logic for simple vs normal mode rendering (lines 59-136).
-- **src/pwsh-prompt/Arguments.cs**: Parses command-line arguments passed from PowerShell. When `--simple` is detected, parsing breaks early to skip unnecessary parameters (lines 36-39).
+- **src/pwsh-prompt/Program.cs**: Entry point that routes between init/prompt modes and orchestrates segment rendering. Contains conditional logic for simple vs normal mode rendering.
+- **src/pwsh-prompt/Arguments.cs**: Parses command-line arguments passed from PowerShell. When `--simple` is detected, parsing breaks early to skip unnecessary parameters.
 - **src/pwsh-prompt/Init.cs**: Generates PowerShell script that installs the prompt function
 - **src/pwsh-prompt/GitInfo.cs**: Traverses directory tree to find .git folder and parse HEAD/config files to determine current branch
 - **src/pwsh-prompt/ValueStringBuilder**: High-performance string building using stack-allocated buffers
@@ -62,7 +62,7 @@ The application has two modes:
 
 ### Segment System
 
-All visual elements implement `ISegment` interface (in `src/pwsh-prompt/Modules/`):
+All visual elements implement `ISegment` interface (in `src/pwsh-prompt/Segments/`):
 - Each segment calculates its own `UnformattedLength` (for layout) and formats itself via `Append(ref ValueStringBuilder)`
 - Segments use Spectre.Console markup syntax for colors (e.g., `[aqua]text[/]`)
 - Main segments: `PathSegment`, `GitSegment`, `HostSegment`, `LastCommandExitCodeSegment`, `LastCommandDurationSegment`, `DateTimeSegment`, `OsSegment`, `PromptSegment`
