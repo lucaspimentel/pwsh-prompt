@@ -37,6 +37,15 @@ Clone the repository and run the installation script:
 
 This will build the native binary and install it to `~/.local/bin/pwsh-prompt`.
 
+Options:
+- `-Force` — skip confirmation prompts and overwrite existing installation
+- `-Update` — pull latest changes from the remote before building
+
+```powershell
+# Pull latest and install without prompts
+./install-local.ps1 -Update -Force
+```
+
 ### Setup
 
 Add this line to your PowerShell profile (`$PROFILE`):
