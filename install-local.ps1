@@ -3,11 +3,11 @@
 
 <#
 .SYNOPSIS
-    Builds and installs pwsh-prompt to ~/.local/bin.
+    Builds and installs pwsh-prompt from source.
 
 .DESCRIPTION
-    This script builds the native executable and installs it to ~/.local/bin/pwsh-prompt.
-    After installation, you can use the prompt in your PowerShell profile.
+    This script builds pwsh-prompt from source and installs it
+    to ~/.local/bin/pwsh-prompt (or ~/.local/bin/pwsh-prompt.exe on Windows).
 
     Requirements:
     - PowerShell 7.0+
@@ -43,6 +43,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+$ProjectName = 'pwsh-prompt'
+$ProjectFile = 'src/pwsh-prompt/pwsh-prompt.csproj'
 
 # Check if the local clone is up-to-date with remote
 Write-Host "Checking if repository is up-to-date..." -ForegroundColor Cyan
@@ -86,71 +89,76 @@ try {
     Pop-Location
 }
 
-# Determine platform-specific runtime identifier
-$rid = if ($IsWindows) {
-    'win-x64'
-} elseif ($IsMacOS) {
-    if ([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture -eq 'Arm64') {
-        'osx-arm64'
-    } else {
-        'osx-x64'
+$exeName = if ($IsWindows) { "$ProjectName.exe" } else { $ProjectName }
+$installDir = Join-Path $HOME '.local/bin'
+$installPath = Join-Path $installDir $exeName
+
+# Check for existing installation before building
+$AlreadyInstalled = Test-Path $installPath
+if ($AlreadyInstalled -and -not $Force) {
+    Write-Host "$ProjectName is already installed at: $installPath" -ForegroundColor Yellow
+    $response = Read-Host "Overwrite existing installation? (y/N)"
+    if ($response -notmatch '^[Yy]') {
+        Write-Host "Installation cancelled." -ForegroundColor Cyan
+        exit 0
     }
-} elseif ($IsLinux) {
-    'linux-x64'
-} else {
-    throw "Unsupported platform"
 }
 
-Write-Host "Building pwsh-prompt for $rid..." -ForegroundColor Cyan
-
-# Build the project
-$projectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src' -AdditionalChildPath 'pwsh-prompt', 'pwsh-prompt.csproj'
-$publishPath = Join-Path $PSScriptRoot 'publish'
-
-dotnet publish $projectPath -c Release -r $rid --output $publishPath
-
-if ($LASTEXITCODE -ne 0) {
-    throw "Build failed with exit code $LASTEXITCODE"
+# Check for .NET SDK
+try {
+    $dotnetVersion = & dotnet --version 2>&1
+    Write-Host ".NET SDK version: $dotnetVersion" -ForegroundColor Cyan
+} catch {
+    Write-Host "Error: .NET SDK not found. Please install .NET 10 SDK or later." -ForegroundColor Red
+    Write-Host "Download from: https://dotnet.microsoft.com/download/dotnet/10.0" -ForegroundColor Cyan
+    exit 1
 }
 
-# Determine executable name
-$exeName = if ($IsWindows) { 'pwsh-prompt.exe' } else { 'pwsh-prompt' }
+# Build and publish the project
+Write-Host "Building $ProjectName..." -ForegroundColor Cyan
+$projectPath = Join-Path $PSScriptRoot $ProjectFile
+$publishPath = Join-Path $PSScriptRoot 'artifacts/publish'
+
+try {
+    dotnet publish $projectPath `
+        -c Release `
+        --output $publishPath
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Build failed with exit code $LASTEXITCODE"
+    }
+} catch {
+    Write-Host "Error: Failed to build project: $_" -ForegroundColor Red
+    exit 1
+}
+
+# Verify executable exists
 $exePath = Join-Path $publishPath $exeName
 
 if (-not (Test-Path $exePath)) {
-    throw "Executable not found at $exePath"
+    Write-Host "Error: Build succeeded but executable not found at: $exePath" -ForegroundColor Red
+    exit 1
 }
 
 Write-Host "Build successful!" -ForegroundColor Green
 
-# Create installation directory
-$installDir = Join-Path -Path $HOME -ChildPath '.local' -AdditionalChildPath 'bin'
-
-if (-not (Test-Path $installDir)) {
-    Write-Host "Creating installation directory at $installDir..." -ForegroundColor Cyan
-    New-Item -ItemType Directory -Path $installDir -Force | Out-Null
-}
-
-# Copy executable
-$installPath = Join-Path $installDir $exeName
-
-if (Test-Path $installPath) {
-    if (-not $Force) {
-        Write-Host "pwsh-prompt is already installed at: $installPath" -ForegroundColor Yellow
-        $response = Read-Host "Overwrite existing installation? (y/N)"
-        if ($response -notmatch '^[Yy]') {
-            Write-Host "Installation cancelled." -ForegroundColor Cyan
-            exit 0
-        }
-    }
+# Remove old installation if present
+if ($AlreadyInstalled) {
     Write-Host "Removing existing installation..." -ForegroundColor Yellow
     Remove-Item $installPath -Force
 }
 
-Write-Host "Copying executable to $installPath..." -ForegroundColor Cyan
-Copy-Item $exePath $installPath
+# Create installation directory if it doesn't exist
+if (-not (Test-Path $installDir)) {
+    Write-Host "Creating installation directory: $installDir" -ForegroundColor Cyan
+    New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+}
 
-# Make executable on Unix systems
+# Copy executable to installation directory
+Write-Host "Installing to: $installPath" -ForegroundColor Cyan
+Copy-Item $exePath $installPath -Force
+
+# Set executable permissions on Unix systems
 if (-not $IsWindows) {
     chmod +x $installPath
 }
