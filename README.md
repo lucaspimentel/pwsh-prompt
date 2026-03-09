@@ -1,6 +1,8 @@
 # pwsh-prompt
 
-A fast, customizable PowerShell prompt written in C# and compiled as a native AOT binary for instant startup.
+A fast, minimal shell prompt for PowerShell, written in C#.
+
+Pre-built binaries support Windows and Linux. macOS is supported when built from source.
 
 ## Features
 
