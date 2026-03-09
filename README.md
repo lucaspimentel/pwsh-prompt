@@ -13,6 +13,13 @@ A fast, customizable PowerShell prompt written in C# and compiled as a native AO
 
 ## Installation
 
+### Scoop (Windows)
+
+```powershell
+scoop bucket add lucaspimentel https://github.com/lucaspimentel/scoop-bucket
+scoop install pwsh-prompt
+```
+
 ### Install from GitHub Release (Recommended)
 
 No build tools or .NET SDK required:
