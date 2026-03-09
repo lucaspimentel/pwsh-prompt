@@ -1,5 +1,7 @@
 # pwsh-prompt
 
+[![CI](https://github.com/lucaspimentel/pwsh-prompt/actions/workflows/ci.yml/badge.svg)](https://github.com/lucaspimentel/pwsh-prompt/actions/workflows/ci.yml) [![Release](https://github.com/lucaspimentel/pwsh-prompt/actions/workflows/release.yml/badge.svg)](https://github.com/lucaspimentel/pwsh-prompt/actions/workflows/release.yml)
+
 A fast, minimal shell prompt for PowerShell, written in C#.
 
 Pre-built binaries support Windows and Linux. macOS is supported when built from source.
