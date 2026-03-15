@@ -1,0 +1,55 @@
+# Changelog
+
+## [Unreleased]
+
+## [0.2.2-beta] - 2026-03-15
+
+### Changed
+- Update GitHub Actions to latest versions and pin to commit SHAs for supply-chain security
+- Refactor install-local.ps1 and add Directory.Build.props
+- Tune AOT optimization settings
+
+### Added
+- Add Scoop installation instructions to README
+- Add CI and Release workflow badges to README
+- Add -Force and -Update params to install-local.ps1
+- Add .claude local files to .gitignore
+- Add CHANGELOG.md
+- Add TODO.md
+
+### Fixed
+- Fix docs: Modules/ → Segments/, remove stale line numbers
+
+## [0.2.1-beta] - 2026-01-06
+
+### Fixed
+- Fix date format: use MM for month instead of mm for minutes
+- Use -NoProfile to run ps1 scripts
+- Make ps1 scripts executable
+
+### Changed
+- Bump Microsoft.Extensions.Primitives from 10.0.0 to 10.0.1
+
+## [0.2.0-beta] - 2025-11-24
+
+### Changed
+- Rename Modules/ to Segments/ for clarity
+- Fix root namespace
+
+### Added
+- Add multi-platform CI testing for Windows and Linux
+
+## [0.1.0] - 2025-11-24
+
+### Added
+- Custom PowerShell prompt with ANSI-formatted segments
+- Segments: path, git branch, host, last command exit code, last command duration, datetime, OS, prompt indicator
+- Native AOT compilation for fast startup
+- Git integration with branch detection for regular repos and worktrees
+- Environment variable caching for git info to minimize file I/O
+- Simple mode (--simple) for minimal single-line prompt
+- Path truncation and path mappings support
+- Nerd Font icons
+- Automated release workflow with Windows and Linux binaries
+- Local and remote installation scripts
+- MIT License
