@@ -74,6 +74,14 @@ For a minimal prompt with just path, git, and host information:
 pwsh-prompt prompt --simple
 ```
 
+### Version
+
+To check the installed version:
+
+```powershell
+pwsh-prompt --version
+```
+
 ## Building Manually
 
 ```powershell

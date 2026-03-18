@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection;
 using System.Text;
 using Prompt.Modules;
 using Spectre.Console;
@@ -18,6 +19,15 @@ internal static class Program
     {
         switch (args)
         {
+            case ["--version"]:
+            {
+                string version = typeof(Program).Assembly
+                                                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                                                ?.InformationalVersion ?? "unknown";
+                AnsiConsole.WriteLine(version);
+                return;
+            }
+
             case ["init"]:
             {
 #pragma warning disable Spectre1000
@@ -152,6 +162,7 @@ internal static class Program
             {
                 AnsiConsole.WriteLine("Usage: Prompt init");
                 AnsiConsole.WriteLine("       Prompt prompt [arguments]");
+                AnsiConsole.WriteLine("       Prompt --version");
                 return;
             }
         }
