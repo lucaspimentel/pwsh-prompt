@@ -118,6 +118,11 @@ if ($Version -eq "latest") {
         }
 
         $DownloadUrl = $Asset.browser_download_url
+
+        $ChecksumsAsset = $Release.assets | Where-Object { $_.name -eq 'checksums.txt' }
+        if ($ChecksumsAsset) {
+            $ChecksumsUrl = $ChecksumsAsset.browser_download_url
+        }
     } catch {
         Write-ErrorMessage "Failed to query GitHub API: $_"
         Write-Info "You may need to specify a version manually with -Version parameter"
@@ -127,6 +132,7 @@ if ($Version -eq "latest") {
     # Use specific version
     $VersionTag = "v$($Version.TrimStart('v'))"
     $DownloadUrl = "https://github.com/$RepoOwner/$RepoName/releases/download/$VersionTag/$AssetName"
+    $ChecksumsUrl = "https://github.com/$RepoOwner/$RepoName/releases/download/$VersionTag/checksums.txt"
     Write-Info "Version: $Version"
 }
 
@@ -178,6 +184,35 @@ try {
         Write-ErrorMessage "Failed to download release: $_"
         Write-Info "URL: $DownloadUrl"
         exit 1
+    }
+
+    # Verify checksum
+    if ($ChecksumsUrl) {
+        Write-Status "Verifying checksum..."
+        try {
+            $ChecksumsContent = Invoke-RestMethod -Uri $ChecksumsUrl -ErrorAction Stop
+            $ExpectedLine = $ChecksumsContent -split "`n" | Where-Object { $_ -match [regex]::Escape($AssetName) } | Select-Object -First 1
+
+            if ($ExpectedLine) {
+                $ExpectedHash = ($ExpectedLine -split '\s+')[0].Trim()
+                $ActualHash = (Get-FileHash -Path $ArchivePath -Algorithm SHA256).Hash
+
+                if ($ActualHash -ne $ExpectedHash) {
+                    Write-ErrorMessage "Checksum verification failed!"
+                    Write-Info "  Expected: $ExpectedHash"
+                    Write-Info "  Actual:   $ActualHash"
+                    exit 1
+                }
+
+                Write-Info "Checksum verified."
+            } else {
+                Write-Warning "No checksum found for '$AssetName' in checksums.txt. Skipping verification."
+            }
+        } catch {
+            Write-Warning "Could not download checksums.txt. Skipping verification."
+        }
+    } else {
+        Write-Warning "No checksums.txt available for this release. Skipping verification."
     }
 
     # Extract archive
