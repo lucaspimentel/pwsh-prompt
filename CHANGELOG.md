@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-07
+
 ### Added
 - Add `--version` CLI parameter
 - Add PR number to prompt via `gh` CLI
