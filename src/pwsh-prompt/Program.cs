@@ -49,7 +49,6 @@ internal static class Program
                 AnsiConsole.Console.Profile.Capabilities.Unicode = true;
                 AnsiConsole.Console.Profile.Capabilities.ColorSystem = ColorSystem.TrueColor;
                 AnsiConsole.Console.Profile.Capabilities.Interactive = false;
-                AnsiConsole.Console.Profile.Capabilities.Legacy = false;
 
                 if (Settings.Debug)
                 {
