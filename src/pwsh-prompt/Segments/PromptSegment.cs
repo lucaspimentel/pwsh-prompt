@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace Prompt.Modules;
+namespace Prompt.Segments;
 
 internal readonly struct PromptSegment : ISegment
 {

@@ -1,6 +1,5 @@
-﻿using System;
-using System.Text;
-using Prompt.Modules;
+﻿using System.Text;
+using Prompt.Segments;
 
 namespace Prompt;
 

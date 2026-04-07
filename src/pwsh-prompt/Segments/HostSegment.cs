@@ -1,7 +1,7 @@
 ﻿using System.Net;
 using System.Text;
 
-namespace Prompt.Modules;
+namespace Prompt.Segments;
 
 internal readonly struct HostSegment : ISegment
 {

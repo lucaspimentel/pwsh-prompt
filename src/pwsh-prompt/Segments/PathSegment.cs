@@ -1,9 +1,7 @@
-﻿using System;
-using System.IO;
-using System.Text;
+﻿using System.Text;
 using Spectre.Console;
 
-namespace Prompt.Modules;
+namespace Prompt.Segments;
 
 internal readonly struct PathSegment : ISegment
 {

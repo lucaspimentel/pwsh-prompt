@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Prompt;
+﻿namespace Prompt;
 
 internal static class Settings
 {

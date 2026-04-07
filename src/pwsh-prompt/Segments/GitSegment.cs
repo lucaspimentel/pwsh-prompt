@@ -1,8 +1,6 @@
-using System;
-using System.IO;
 using System.Text;
 
-namespace Prompt.Modules;
+namespace Prompt.Segments;
 
 internal readonly struct GitSegment : ISegment
 {

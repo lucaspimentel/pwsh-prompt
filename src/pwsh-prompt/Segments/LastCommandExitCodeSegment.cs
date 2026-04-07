@@ -1,7 +1,6 @@
-﻿using System;
-using System.Text;
+﻿using System.Text;
 
-namespace Prompt.Modules;
+namespace Prompt.Segments;
 
 internal readonly struct LastCommandExitCodeSegment : ISegment
 {
