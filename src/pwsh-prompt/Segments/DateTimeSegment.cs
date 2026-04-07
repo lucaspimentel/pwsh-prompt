@@ -4,18 +4,18 @@ namespace Prompt.Segments;
 
 internal readonly struct DateTimeSegment : ISegment
 {
+    private const string Format = "yyyy-MM-dd h:mm tt";
     private readonly DateTimeOffset _now = DateTimeOffset.Now;
 
     public DateTimeSegment()
     {
     }
 
-    public int UnformattedLength => _now.Hour % 12 < 10 ? 22 : 23;
+    public int UnformattedLength => _now.Hour % 12 < 10 ? Format.Length : Format.Length + 1;
 
     public void Append(ref ValueStringBuilder sb)
     {
-        sb.Append(" at ");
-        sb.AppendSpanFormattable(_now, "yyyy-MM-dd h:mm tt");
+        sb.AppendSpanFormattable(_now, Format);
     }
 
     public override string ToString()

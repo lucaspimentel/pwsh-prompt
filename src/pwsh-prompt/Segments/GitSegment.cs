@@ -4,8 +4,8 @@ namespace Prompt.Segments;
 
 internal readonly struct GitSegment : ISegment
 {
-    private const string Prefix = " in  ";
-    private const string PrPrefix = " #";
+    private const string BranchPrefix = "   ";
+    private const string PrPrefix = " PR#";
 
     private readonly Microsoft.Extensions.Primitives.StringSegment _branchName;
     private readonly string? _prNumber;
@@ -24,9 +24,21 @@ internal readonly struct GitSegment : ISegment
         }
     }
 
-    public int UnformattedLength => _branchName.Length == 0
-        ? 0
-        : Prefix.Length + _branchName.Length + (_prNumber != null ? PrPrefix.Length + _prNumber.Length : 0);
+    public int UnformattedLength
+    {
+        get
+        {
+            if (_branchName.Length == 0)
+            {
+                return 0;
+            }
+            else
+            {
+                int prPrefixLength = _prNumber != null ? PrPrefix.Length + _prNumber.Length : 0;
+                return BranchPrefix.Length + _branchName.Length + prPrefixLength;
+            }
+        }
+    }
 
     public void Append(ref ValueStringBuilder sb)
     {
@@ -36,7 +48,7 @@ internal readonly struct GitSegment : ISegment
         }
 
         sb.Append("[#ff7fff]");
-        sb.Append(Prefix);
+        sb.Append(BranchPrefix);
         sb.Append(_branchName);
 
         if (_prNumber != null)

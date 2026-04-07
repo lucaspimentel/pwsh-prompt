@@ -9,16 +9,13 @@ internal readonly struct PathSegment : ISegment
     private const string GitPrefix = "   ";
 
     private readonly Microsoft.Extensions.Primitives.StringSegment _currentDirectoryDisplay;
-    private readonly Microsoft.Extensions.Primitives.StringSegment _currentDirectoryExpanded;
-    private readonly bool _isFileSystem;
     private readonly bool _isInUserHome;
     private readonly bool _isTruncated;
     private readonly bool _isGitRepo;
 
     public PathSegment(Microsoft.Extensions.Primitives.StringSegment currentDirectory, bool isFileSystem, int maxPathLength, bool simpleMode)
     {
-        _currentDirectoryDisplay = _currentDirectoryExpanded = currentDirectory;
-        _isFileSystem = isFileSystem;
+        _currentDirectoryDisplay = currentDirectory;
 
         if (!isFileSystem)
         {
