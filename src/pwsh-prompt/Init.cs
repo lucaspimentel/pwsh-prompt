@@ -70,9 +70,18 @@ $$"""
           if ($env:PROMPT_GIT_CACHE_DIR -eq $PWD.Path -and -not $headChanged) {
               $env:PROMPT_GIT_DIR_CACHED = $env:PROMPT_GIT_DIR
               $env:PROMPT_GIT_BRANCH_CACHED = $env:PROMPT_GIT_BRANCH
+              $env:PROMPT_PR_NUMBER_CACHED = $env:PROMPT_PR_NUMBER
           } else {
               $env:PROMPT_GIT_DIR_CACHED = ""
               $env:PROMPT_GIT_BRANCH_CACHED = ""
+
+              # Fetch PR number on branch change (skip if gh is not available)
+              if ((Get-Command gh -ErrorAction SilentlyContinue)) {
+                  $env:PROMPT_PR_NUMBER = (gh pr view --json number -q .number 2>$null)
+              } else {
+                  $env:PROMPT_PR_NUMBER = ""
+              }
+              $env:PROMPT_PR_NUMBER_CACHED = $env:PROMPT_PR_NUMBER
           }
 
           $arguments = @(
@@ -97,6 +106,7 @@ $$"""
               if (Test-Path $headFile) {
                   $env:PROMPT_GIT_HEAD = Get-Content $headFile -Raw
               }
+
           }
 
           # notify PSReadLine of a multiline prompt
