@@ -9,7 +9,7 @@ Pre-built binaries support Windows and Linux. macOS is supported when built from
 ## Features
 
 - **Lightning fast**: Native AOT compilation means zero startup delay
-- **Git integration**: Shows current branch with smart caching
+- **Git integration**: Shows current branch and PR number with smart caching
 - **Path display**: Intelligently truncates long paths to fit terminal width
 - **Command feedback**: Displays exit codes and execution duration
 - **System info**: Shows OS and shell information

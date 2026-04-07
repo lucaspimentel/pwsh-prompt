@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+- Add `--version` CLI parameter
+- Add PR number to prompt via `gh` CLI
+- Add checksum verification to install-remote.ps1
+
+### Changed
+- Simplify segment prefixes and formatting
+- Update nuget references
+- Fix namespace name
+
 ## [0.2.2-beta] - 2026-03-15
 
 ### Changed

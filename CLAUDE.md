@@ -6,30 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a custom PowerShell prompt written in C# that displays contextual information about the current directory, git repository, last command status, and system information. It's compiled as a native AOT binary for fast startup times.
 
-## Project Structure
-
-```
-pwsh-prompt/
-├── .github/
-│   └── workflows/
-│       ├── ci.yml            # CI workflow (build and test on Windows + Linux)
-│       └── release.yml       # Release workflow (builds binaries on git tag)
-├── src/
-│   └── pwsh-prompt/          # Main C# project
-│       ├── Segments/         # Segment implementations (ISegment)
-│       ├── Program.cs        # Entry point and mode routing
-│       ├── Arguments.cs      # Command-line argument parsing
-│       ├── GitInfo.cs        # Git repository detection and caching
-│       ├── Init.cs           # PowerShell initialization script generator
-│       ├── ValueStringBuilder.cs  # High-performance string builder
-│       └── pwsh-prompt.csproj
-├── install-local.ps1         # Build from source and install locally
-├── install-remote.ps1        # Download from GitHub releases and install
-├── pwsh-prompt.slnx          # Solution file
-├── CLAUDE.md                 # This file
-└── README.md                 # User documentation
-```
-
 ## Build and Installation
 
 - **Restore dependencies**: `dotnet restore src/pwsh-prompt`
@@ -53,12 +29,13 @@ The application has two modes:
 
 ### Core Components
 
-- **src/pwsh-prompt/Program.cs**: Entry point that routes between init/prompt modes and orchestrates segment rendering. Contains conditional logic for simple vs normal mode rendering.
-- **src/pwsh-prompt/Arguments.cs**: Parses command-line arguments passed from PowerShell. When `--simple` is detected, parsing breaks early to skip unnecessary parameters.
-- **src/pwsh-prompt/Init.cs**: Generates PowerShell script that installs the prompt function
-- **src/pwsh-prompt/GitInfo.cs**: Traverses directory tree to find .git folder and parse HEAD/config files to determine current branch
-- **src/pwsh-prompt/ValueStringBuilder**: High-performance string building using stack-allocated buffers
-- **install-local.ps1**: Cross-platform installation script that builds native binary and installs to `~/.local/bin`
+- **Program.cs**: Entry point that routes between init/prompt modes and orchestrates segment rendering. Contains conditional logic for simple vs normal mode rendering.
+- **Arguments.cs**: Parses command-line arguments passed from PowerShell. When `--simple` is detected, parsing breaks early to skip unnecessary parameters.
+- **Init.cs**: Generates PowerShell script that installs the prompt function. Handles git info caching via environment variables.
+- **GitInfo.cs**: Traverses directory tree to find .git folder and parse HEAD/config files to determine current branch. Supports PR number display via `gh` CLI.
+- **ValueStringBuilder.cs**: High-performance string building using stack-allocated buffers.
+- **Settings.cs**: Defines compile-time settings and constants.
+- **SegmentUtils.cs**: Shared segment rendering utilities.
 
 ### Segment System
 
