@@ -4,7 +4,7 @@ namespace Prompt.Segments;
 
 internal readonly struct DateTimeSegment : ISegment
 {
-    private const string Format = "yyyy-MM-dd h:mm tt";
+    private const string Format = " yyyy-MM-dd h:mm tt ";
     private readonly DateTimeOffset _now = DateTimeOffset.Now;
 
     public DateTimeSegment()
