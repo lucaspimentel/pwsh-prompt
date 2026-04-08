@@ -83,6 +83,12 @@ The project uses GitHub Actions to automatically create releases when a git tag 
 
 ### Creating a Release
 
+Use the `/ship` skill with the target version: `/ship 1.0.0`
+
+This runs the full release flow (version bump, changelog, commit, tag, push, watch CI, update release notes) using `.ship.yml` config.
+
+Alternatively, manually:
+
 1. **Tag the commit**: `git tag v1.0.0` (use semantic versioning)
 2. **Push the tag**: `git push origin v1.0.0`
 3. **GitHub Actions**: The release workflow (`.github/workflows/release.yml`) will automatically:

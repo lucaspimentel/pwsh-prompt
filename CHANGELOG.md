@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-04-08
+
+### Added
+- Add .ship.yml release config
+
+### Fixed
+- Fix padding regression in DateTimeSegment
+
 ## [0.3.0] - 2026-04-07
 
 ### Added
