@@ -9,6 +9,7 @@
 
 ### Fixed
 - Fix padding regression in DateTimeSegment
+- Fix PR number not updating on branch switch
 
 ## [0.3.0] - 2026-04-07
 
