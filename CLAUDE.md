@@ -69,13 +69,13 @@ The prompt rendering varies by mode:
 
 **Important**: The C# process starts fresh on every prompt invocation, so static caching doesn't work. Instead, caching happens via PowerShell environment variables:
 
-- **PowerShell side** (src/pwsh-prompt/Init.cs): Before invoking the C# binary, checks if still in same directory and if `.git/HEAD` file is unchanged. If so, passes cached git directory and branch name via `PROMPT_GIT_DIR_CACHED` and `PROMPT_GIT_BRANCH_CACHED` environment variables. After invocation, reads `PROMPT_GIT_DIR_OUT` and `PROMPT_GIT_BRANCH_OUT` from the C# process and stores them along with the HEAD file content for next prompt.
+- **PowerShell side** (src/pwsh-prompt/Init.cs): Discovers the git directory by walking up the directory tree (on directory change only). On every prompt, reads `.git/HEAD` and compares to the stored content. If changed, clears caches and re-fetches the PR number. Before invoking C#, passes cached values via `PROMPT_GIT_DIR_CACHED`, `PROMPT_GIT_BRANCH_CACHED`, and `PROMPT_PR_NUMBER_CACHED`.
 
-- **C# side** (src/pwsh-prompt/GitInfo.cs): `TryFindGitFolder()` and `GetBranchName()` check the `*_CACHED` environment variables first. If found, they skip all file I/O. After computing fresh values, they write to `*_OUT` environment variables for PowerShell to cache.
+- **C# side** (src/pwsh-prompt/GitInfo.cs): `TryFindGitFolder()` and `GetBranchName()` check the `*_CACHED` environment variables first. If found, they skip all file I/O.
 
 - **Cache invalidation**: The cache is invalidated when changing directories or when the `.git/HEAD` file content changes (which happens on checkout, commit, rebase, etc).
 
-This approach eliminates file I/O on repeated prompts in the same branch while ensuring correctness when the branch changes.
+- **Note**: Child process environment changes do not propagate back to the parent PowerShell process, so git metadata is discovered in PowerShell directly rather than relying on C# to write back `*_OUT` env vars.
 
 ## Releases
 
