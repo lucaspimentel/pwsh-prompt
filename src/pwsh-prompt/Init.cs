@@ -90,9 +90,9 @@ $$"""
           # Check if HEAD changed (detects branch switches, rebases, etc.)
           $headChanged = $false
           if ($env:PROMPT_GIT_CACHE_DIR -eq $PWD.Path -and $env:PROMPT_GIT_DIR) {
-              $headFile = Join-Path $env:PROMPT_GIT_DIR 'HEAD'
-              if (Test-Path $headFile) {
-                  $currentHead = Get-Content $headFile -Raw
+              $headFile = [IO.Path]::Combine($env:PROMPT_GIT_DIR, 'HEAD')
+              if ([IO.File]::Exists($headFile)) {
+                  $currentHead = [IO.File]::ReadAllText($headFile)
                   if ($currentHead -ne $env:PROMPT_GIT_HEAD) {
                       $headChanged = $true
                   }
@@ -104,7 +104,8 @@ $$"""
               $env:PROMPT_GIT_BRANCH_CACHED = $env:PROMPT_GIT_BRANCH
               $env:PROMPT_PR_NUMBER_CACHED = $env:PROMPT_PR_NUMBER
           } else {
-              $env:PROMPT_GIT_DIR_CACHED = ''
+              # Pass PowerShell-discovered git dir through so C# skips its own walk.
+              $env:PROMPT_GIT_DIR_CACHED = $env:PROMPT_GIT_DIR
               $env:PROMPT_GIT_BRANCH_CACHED = ''
 
               # Fetch PR number on branch change (skip if gh is not available)
@@ -116,6 +117,8 @@ $$"""
               $env:PROMPT_PR_NUMBER_CACHED = $env:PROMPT_PR_NUMBER
           }
 
+          $invariant = [System.Globalization.CultureInfo]::InvariantCulture
+          $durationMs = ([int](Get-History -Count 1).Duration.TotalMilliseconds).ToString($invariant)
           $arguments = @(
               "prompt",
               "--terminal-width=$($Host.UI.RawUI.WindowSize.Width)",
@@ -123,7 +126,7 @@ $$"""
               "--current-directory-is-filesystem=$($PWD.Provider.Name -eq 'FileSystem')",
               "--last-command-state=$origDollarQuestion",
               "--last-command-exit-code=$LASTEXITCODE",
-              "--last-command-duration=$( ([int](Get-History -Count 1).Duration.TotalMilliseconds).ToString([System.Globalization.CultureInfo]::InvariantCulture) )"
+              "--last-command-duration=$durationMs"
           )
 
           # Invoke <Prompt>
@@ -132,9 +135,9 @@ $$"""
           # Cache git info for next prompt
           $env:PROMPT_GIT_CACHE_DIR = $PWD.Path
           if ($env:PROMPT_GIT_DIR) {
-              $headFile = Join-Path $env:PROMPT_GIT_DIR 'HEAD'
-              if (Test-Path $headFile) {
-                  $headContent = Get-Content $headFile -Raw
+              $headFile = [IO.Path]::Combine($env:PROMPT_GIT_DIR, 'HEAD')
+              if ([IO.File]::Exists($headFile)) {
+                  $headContent = [IO.File]::ReadAllText($headFile)
                   $env:PROMPT_GIT_HEAD = $headContent
                   # Parse branch name for C# branch cache optimization
                   if ($headContent -match 'ref: refs/heads/(.+)') {

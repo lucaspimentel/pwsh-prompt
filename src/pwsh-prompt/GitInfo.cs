@@ -74,10 +74,6 @@ internal static partial class GitInfo
             branch = branch.Subsegment(11);
         }
 
-        // Write to environment variable for PowerShell to cache
-        Environment.SetEnvironmentVariable("PROMPT_GIT_BRANCH_OUT", branch.ToString());
-        Environment.SetEnvironmentVariable("PROMPT_GIT_DIR_OUT", gitFolder);
-
         return branch;
     }
 
