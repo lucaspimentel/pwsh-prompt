@@ -209,6 +209,12 @@ $$"""
               }
           }
       }
+
+      # OSC 133;C — mark start of command output (emitted when user presses Enter)
+      Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
+          [Console]::Write("$([char]27)]133;C$([char]27)\")
+          [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+      }
   }
 
   """;
