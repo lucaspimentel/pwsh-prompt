@@ -5,7 +5,7 @@ namespace Prompt.Segments;
 internal readonly struct GitSegment : ISegment
 {
     private const string BranchPrefix = "   ";
-    private const string PrPrefix = " PR#";
+    private const string PrPrefix = " #";
 
     private readonly Microsoft.Extensions.Primitives.StringSegment _branchName;
     private readonly string? _prNumber;
