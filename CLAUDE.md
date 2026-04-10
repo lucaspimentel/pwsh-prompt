@@ -31,7 +31,7 @@ The application has two modes:
 
 - **Program.cs**: Entry point that routes between init/prompt modes and orchestrates segment rendering. Contains conditional logic for simple vs normal mode rendering.
 - **Arguments.cs**: Parses command-line arguments passed from PowerShell. When `--simple` is detected, parsing breaks early to skip unnecessary parameters.
-- **Init.cs**: Generates PowerShell script that installs the prompt function. Handles git info caching via environment variables and emits shell integration escape sequences (OSC 9;9, 133;A/B/D).
+- **Init.cs**: Generates PowerShell script that installs the prompt function. Handles git info caching via environment variables and emits shell integration escape sequences (OSC 9;9, 133;A/B/C/D).
 - **GitInfo.cs**: Traverses directory tree to find .git folder and parse HEAD/config files to determine current branch. Supports PR number display via `gh` CLI.
 - **ValueStringBuilder.cs**: High-performance string building using stack-allocated buffers.
 - **Settings.cs**: Defines compile-time settings and constants.

@@ -11,6 +11,5 @@
   - OSC 133;A — mark prompt start (enables scrollbar marks, jump-between-commands, select-command-output)
   - OSC 133;B — mark command input start (end of prompt)
   - OSC 133;D — mark previous command finished with exit code (must fire before C# binary invocation)
-  - OSC 133;C (command executed) deferred — requires PSReadLine `AcceptLine` hook, adds complexity
   - These are protocol-level markers, not visual — they belong in the shell wrapper, not the C# rendering
   - Ref: [Shell Integration](https://learn.microsoft.com/en-us/windows/terminal/tutorials/shell-integration), [New Tab Same Directory](https://learn.microsoft.com/en-us/windows/terminal/tutorials/new-tab-same-directory)
