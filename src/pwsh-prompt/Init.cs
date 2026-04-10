@@ -62,6 +62,7 @@ $$"""
           # ESC ] <code> ; <data> ST
           $e = [char]27
           $st = "$e\"
+          $prompt = ''
 
           # OSC 133;D — mark previous command as finished (with exit code)
           # Skip on first prompt (no command has run yet)
@@ -69,18 +70,18 @@ $$"""
           if ($script:lastHistoryId -ne -1) {
               if ($lastHistory.Id -eq $script:lastHistoryId) {
                   # No new command was executed (e.g. Ctrl+C, empty Enter)
-                  [Console]::Write("$e]133;D$st")
+                  $prompt += "$e]133;D$st"
               } else {
                   $exitCode = if ($origDollarQuestion) { 0 } else { if ($origLastExitCode) { $origLastExitCode } else { 1 } }
-                  [Console]::Write("$e]133;D;$exitCode$st")
+                  $prompt += "$e]133;D;$exitCode$st"
               }
           }
 
           # OSC 133;A — mark prompt start
-          [Console]::Write("$e]133;A$st")
+          $prompt += "$e]133;A$st"
 
           # OSC 9;9 — communicate current working directory (for new tab same directory)
-          [Console]::Write("$e]9;9;`"$($PWD.ProviderPath)`"$st")
+          $prompt += "$e]9;9;`"$($PWD.ProviderPath)`"$st"
 
           # Discover git directory when working directory changes.
           # Done in PowerShell because child process environment changes (set by the C# binary)
@@ -178,11 +179,9 @@ $$"""
           # notify PSReadLine of a multiline prompt
           Set-PSReadLineOption -ExtraPromptLineCount (($promptText | Measure-Object -Line).Lines - 1)
 
-          # Return the prompt
-          $promptText
-
+          # Return the full prompt with shell integration marks
           # OSC 133;B — mark end of prompt / start of command input
-          [Console]::Write("$e]133;B$st")
+          $prompt + $promptText + "$e]133;B$st"
 
           # Track history ID for next prompt's 133;D logic
           $script:lastHistoryId = $lastHistory.Id
