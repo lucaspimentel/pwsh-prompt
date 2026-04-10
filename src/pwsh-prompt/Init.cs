@@ -59,9 +59,9 @@ $$"""
           $origLastExitCode = $global:LASTEXITCODE
 
           # Shell integration escape sequences (Windows Terminal, iTerm2, etc.)
-          # ESC ] <code> ; <data> BEL
+          # ESC ] <code> ; <data> ST
           $e = [char]27
-          $bel = [char]7
+          $st = "$e\"
 
           # OSC 133;D — mark previous command as finished (with exit code)
           # Skip on first prompt (no command has run yet)
@@ -69,18 +69,18 @@ $$"""
           if ($script:lastHistoryId -ne -1) {
               if ($lastHistory.Id -eq $script:lastHistoryId) {
                   # No new command was executed (e.g. Ctrl+C, empty Enter)
-                  [Console]::Write("$e]133;D$bel")
+                  [Console]::Write("$e]133;D$st")
               } else {
                   $exitCode = if ($origDollarQuestion) { 0 } else { if ($origLastExitCode) { $origLastExitCode } else { 1 } }
-                  [Console]::Write("$e]133;D;$exitCode$bel")
+                  [Console]::Write("$e]133;D;$exitCode$st")
               }
           }
 
           # OSC 133;A — mark prompt start
-          [Console]::Write("$e]133;A$bel")
+          [Console]::Write("$e]133;A$st")
 
           # OSC 9;9 — communicate current working directory (for new tab same directory)
-          [Console]::Write("$e]9;9;`"$($PWD.ProviderPath)`"$bel")
+          [Console]::Write("$e]9;9;`"$($PWD.ProviderPath)`"$st")
 
           # Discover git directory when working directory changes.
           # Done in PowerShell because child process environment changes (set by the C# binary)
@@ -182,7 +182,7 @@ $$"""
           $promptText
 
           # OSC 133;B — mark end of prompt / start of command input
-          [Console]::Write("$e]133;B$bel")
+          [Console]::Write("$e]133;B$st")
 
           # Track history ID for next prompt's 133;D logic
           $script:lastHistoryId = $lastHistory.Id
