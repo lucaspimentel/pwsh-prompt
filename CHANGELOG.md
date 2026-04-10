@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Add Windows Terminal shell integration escape sequences (OSC 9;9, 133;A/B/D) for new-tab-same-directory, scrollbar marks, and command navigation
+
 ## [0.3.1] - 2026-04-08
 
 ### Added

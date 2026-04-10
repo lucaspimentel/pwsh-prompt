@@ -14,6 +14,7 @@ Pre-built binaries support Windows and Linux. macOS is supported when built from
 - **Command feedback**: Displays exit codes and execution duration
 - **System info**: Shows OS and shell information
 - **Simple mode**: Minimal prompt option for even faster rendering
+- **Windows Terminal integration**: Shell integration escape sequences for new-tab-same-directory, scrollbar marks, and command navigation
 
 ## Installation
 
