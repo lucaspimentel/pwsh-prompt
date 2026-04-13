@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.1] - 2026-04-13
+
+### Changed
+- Simplify PR prefix in git segment display
+
 ## [0.4.0] - 2026-04-10
 
 ### Added
