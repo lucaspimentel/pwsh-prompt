@@ -4,11 +4,14 @@ namespace Prompt.Segments;
 
 internal readonly struct GitSegment : ISegment
 {
-    private const string BranchPrefix = "   ";
-    private const string PrPrefix = " #";
+    private const string BranchPrefix = "  \ue725 "; // branch, ,    󰘬 
+    private const string PrIconOpen   = "  \uea64 "; // open PR, 
+    private const string PrIconClosed = "  \uebda "; // closed PR, 
+    private const string PrIconDraft  = "  \uebdb "; // draft PR, 
 
     private readonly Microsoft.Extensions.Primitives.StringSegment _branchName;
     private readonly string? _prNumber;
+    private readonly string _prIcon;
 
     public GitSegment(string path)
     {
@@ -20,7 +23,22 @@ internal readonly struct GitSegment : ISegment
             if (!string.IsNullOrEmpty(prNumber))
             {
                 _prNumber = prNumber;
+                var prState = Environment.GetEnvironmentVariable("PROMPT_PR_STATE_CACHED");
+                _prIcon = prState switch
+                {
+                    "closed" => PrIconClosed,
+                    "draft"  => PrIconDraft,
+                    _        => PrIconOpen,
+                };
             }
+            else
+            {
+                _prIcon = PrIconOpen;
+            }
+        }
+        else
+        {
+            _prIcon = PrIconOpen;
         }
     }
 
@@ -34,7 +52,7 @@ internal readonly struct GitSegment : ISegment
             }
             else
             {
-                int prPrefixLength = _prNumber != null ? PrPrefix.Length + _prNumber.Length : 0;
+                int prPrefixLength = _prNumber != null ? _prIcon.Length + _prNumber.Length : 0;
                 return BranchPrefix.Length + _branchName.Length + prPrefixLength;
             }
         }
@@ -53,7 +71,7 @@ internal readonly struct GitSegment : ISegment
 
         if (_prNumber != null)
         {
-            sb.Append(PrPrefix);
+            sb.Append(_prIcon);
             sb.Append(_prNumber);
         }
 

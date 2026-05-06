@@ -131,18 +131,29 @@ $$"""
               $env:PROMPT_GIT_DIR_CACHED = $env:PROMPT_GIT_DIR
               $env:PROMPT_GIT_BRANCH_CACHED = $env:PROMPT_GIT_BRANCH
               $env:PROMPT_PR_NUMBER_CACHED = $env:PROMPT_PR_NUMBER
+              $env:PROMPT_PR_STATE_CACHED = $env:PROMPT_PR_STATE
           } else {
               # Pass PowerShell-discovered git dir through so C# skips its own walk.
               $env:PROMPT_GIT_DIR_CACHED = $env:PROMPT_GIT_DIR
               $env:PROMPT_GIT_BRANCH_CACHED = ''
 
-              # Fetch PR number on branch change (skip if gh is not available)
+              # Fetch PR info on branch change (skip if gh is not available)
               if ((Get-Command gh -ErrorAction SilentlyContinue)) {
-                  $env:PROMPT_PR_NUMBER = (gh pr view --json number -q .number 2>$null)
+                  $prInfo = (gh pr view --json number,isDraft,state -q '"\(.number)|\(.state)|\(.isDraft)"' 2>$null)
+                  if ($prInfo) {
+                      $parts = $prInfo -split '\|'
+                      $env:PROMPT_PR_NUMBER = $parts[0]
+                      $env:PROMPT_PR_STATE = if ($parts[2] -eq 'true') { 'draft' } elseif ($parts[1].ToLower() -eq 'closed') { 'closed' } else { 'open' }
+                  } else {
+                      $env:PROMPT_PR_NUMBER = ''
+                      $env:PROMPT_PR_STATE = ''
+                  }
               } else {
                   $env:PROMPT_PR_NUMBER = ''
+                  $env:PROMPT_PR_STATE = ''
               }
               $env:PROMPT_PR_NUMBER_CACHED = $env:PROMPT_PR_NUMBER
+              $env:PROMPT_PR_STATE_CACHED = $env:PROMPT_PR_STATE
           }
 
           $invariant = [System.Globalization.CultureInfo]::InvariantCulture
