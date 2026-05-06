@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0] - 2026-05-06
+
+### Changed
+- Use nerd font icons for PR status in git segment (open, closed, draft)
+- Update Spectre.Console to 0.55.2
+- Update Microsoft.Extensions.Primitives to 10.0.6
+
 ## [0.4.1] - 2026-04-13
 
 ### Changed
