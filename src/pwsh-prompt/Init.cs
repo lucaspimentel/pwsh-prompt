@@ -58,6 +58,10 @@ $$"""
           $origDollarQuestion = $global:?
           $origLastExitCode = $global:LASTEXITCODE
 
+          # Per-op + total prompt wall-clock, shown when DEBUG_PROMPT=1
+          $debugTimings = if ($env:DEBUG_PROMPT -eq '1') { [System.Collections.Specialized.OrderedDictionary]::new() } else { $null }
+          $debugStart = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
+
           # Shell integration escape sequences (Windows Terminal, iTerm2, etc.)
           # ESC ] <code> ; <data> ST
           $e = [char]27
@@ -117,6 +121,7 @@ $$"""
 
           # Check if HEAD changed (detects branch switches, rebases, etc.)
           $headChanged = $false
+          $tsHead = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
           if ($env:PROMPT_GIT_CACHE_DIR -eq $PWD.Path -and $env:PROMPT_GIT_DIR) {
               $headFile = [IO.Path]::Combine($env:PROMPT_GIT_DIR, 'HEAD')
               if ([IO.File]::Exists($headFile)) {
@@ -125,6 +130,10 @@ $$"""
                       $headChanged = $true
                   }
               }
+          }
+          if ($debugTimings) {
+              $elapsed = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsHead).TotalMilliseconds
+              if ($debugTimings.Contains('head-read')) { $debugTimings['head-read'] += $elapsed } else { $debugTimings['head-read'] = $elapsed }
           }
 
           if ($env:PROMPT_GIT_CACHE_DIR -eq $PWD.Path -and -not $headChanged) {
@@ -138,6 +147,7 @@ $$"""
               $env:PROMPT_GIT_BRANCH_CACHED = ''
 
               # Fetch PR info on branch change (skip if gh is not available)
+              $tsGhPr = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
               if ((Get-Command gh -ErrorAction SilentlyContinue)) {
                   $prInfo = (gh pr view --json number,isDraft,state -q '"\(.number)|\(.state)|\(.isDraft)"' 2>$null)
                   if ($prInfo) {
@@ -151,6 +161,9 @@ $$"""
               } else {
                   $env:PROMPT_PR_NUMBER = ''
                   $env:PROMPT_PR_STATE = ''
+              }
+              if ($debugTimings) {
+                  $debugTimings['gh-pr'] = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsGhPr).TotalMilliseconds
               }
               $env:PROMPT_PR_NUMBER_CACHED = $env:PROMPT_PR_NUMBER
               $env:PROMPT_PR_STATE_CACHED = $env:PROMPT_PR_STATE
@@ -169,9 +182,14 @@ $$"""
           )
 
           # Invoke <Prompt>
+          $tsInvoke = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
           $promptText = Invoke-Native -Executable '{{processName}}' -Arguments $arguments
+          if ($debugTimings) {
+              $debugTimings['invoke-native'] = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsInvoke).TotalMilliseconds
+          }
 
           # Cache git info for next prompt
+          $tsHead2 = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
           $env:PROMPT_GIT_CACHE_DIR = $PWD.Path
           if ($env:PROMPT_GIT_DIR) {
               $headFile = [IO.Path]::Combine($env:PROMPT_GIT_DIR, 'HEAD')
@@ -186,9 +204,21 @@ $$"""
                   }
               }
           }
+          if ($debugTimings) {
+              $elapsed = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsHead2).TotalMilliseconds
+              if ($debugTimings.Contains('head-read')) { $debugTimings['head-read'] += $elapsed } else { $debugTimings['head-read'] = $elapsed }
+          }
 
           # notify PSReadLine of a multiline prompt
           Set-PSReadLineOption -ExtraPromptLineCount (($promptText | Measure-Object -Line).Lines - 1)
+
+          if ($debugTimings) {
+              $totalMs = [System.Diagnostics.Stopwatch]::GetElapsedTime($debugStart).TotalMilliseconds
+              foreach ($entry in $debugTimings.GetEnumerator()) {
+                  Write-Host ("{0}: {1:F2}ms" -f $entry.Key, $entry.Value) -ForegroundColor DarkGray
+              }
+              Write-Host ("total: {0:F2}ms" -f $totalMs) -ForegroundColor DarkGray
+          }
 
           # Return the full prompt with shell integration marks
           # OSC 133;B — mark end of prompt / start of command input
