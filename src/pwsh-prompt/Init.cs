@@ -146,9 +146,9 @@ $$"""
               $env:PROMPT_GIT_DIR_CACHED = $env:PROMPT_GIT_DIR
               $env:PROMPT_GIT_BRANCH_CACHED = ''
 
-              # Fetch PR info on branch change (skip if gh is not available)
+              # Fetch PR info on branch change (skip if not in a git repo or gh is not available)
               $tsGhPr = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
-              if ((Get-Command gh -ErrorAction SilentlyContinue)) {
+              if ($env:PROMPT_GIT_DIR -and (Get-Command gh -ErrorAction SilentlyContinue)) {
                   $prInfo = (gh pr view --json number,isDraft,state -q '"\(.number)|\(.state)|\(.isDraft)"' 2>$null)
                   if ($prInfo) {
                       $parts = $prInfo -split '\|'
