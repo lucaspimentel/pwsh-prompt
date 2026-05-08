@@ -13,3 +13,15 @@
   - OSC 133;D — mark previous command finished with exit code (must fire before C# binary invocation)
   - These are protocol-level markers, not visual — they belong in the shell wrapper, not the C# rendering
   - Ref: [Shell Integration](https://learn.microsoft.com/en-us/windows/terminal/tutorials/shell-integration), [New Tab Same Directory](https://learn.microsoft.com/en-us/windows/terminal/tutorials/new-tab-same-directory)
+- [ ] Background-fetch `gh pr view` so branch changes don't block the prompt
+  - Currently `Init.cs:142` calls `gh pr view` synchronously inside the `Prompt` function on cache invalidation; measured cost is 350 ms (no PR) to 1.3 s (new repo) per branch change
+  - Fire the lookup as a `Start-Job` (or `Start-ThreadJob`) and return immediately; the prompt right after a branch change shows no PR
+  - On the next `Prompt` invocation, poll the job state and read the result into `$env:PROMPT_PR_NUMBER` / `$env:PROMPT_PR_STATE` if completed
+  - Pattern reference: Starship handles slow git lookups this way
+  - Need to handle: job lifecycle cleanup, cancelling in-flight jobs when the user changes branches again before the previous one returned, and ensuring the cache key (`PROMPT_GIT_HEAD`) matches the branch the job was launched for
+- [ ] Cache `gh pr` results per-branch instead of single-slot
+  - Current cache (`Init.cs:131-134`) holds one branch's PR info; bouncing between `main` and `feature-x` re-runs `gh pr view` each direction (~350 ms - 1.3 s per switch)
+  - Replace the flat `$env:PROMPT_PR_NUMBER` / `$env:PROMPT_PR_STATE` env vars with a small in-memory hashtable keyed by branch name, populated on first lookup
+  - Keep an env var copy for the current branch so the C# binary still reads via `PROMPT_PR_NUMBER_CACHED` / `PROMPT_PR_STATE_CACHED` unchanged
+  - Memory is per-PowerShell-session (the dynamic module in `Init.cs` already holds session state via `$script:lastHistoryId`); no persistence needed
+  - Optional refinement: invalidate per-branch entries after some TTL so PR state changes (open → merged) eventually surface
