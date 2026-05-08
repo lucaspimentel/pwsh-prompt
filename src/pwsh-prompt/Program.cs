@@ -66,15 +66,22 @@ internal static class Program
 
                 if (state.SimpleMode)
                 {
+                    long tsHost = SegmentTimer.Start();
                     var hostSegment = new HostSegment();
+                    SegmentTimer.Record(nameof(HostSegment), tsHost);
+
+                    long tsGit = SegmentTimer.Start();
                     var gitSegment = new GitSegment(state.CurrentDirectory.ToString());
+                    SegmentTimer.Record(nameof(GitSegment), tsGit);
 
                     int maxPathLength = state.TerminalWidth
                                        - hostSegment.UnformattedLength
                                        - gitSegment.UnformattedLength
                                        - 1;
 
+                    long tsPath = SegmentTimer.Start();
                     var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryIsFileSystem, maxPathLength, simpleMode: true);
+                    SegmentTimer.Record(nameof(PathSegment), tsPath);
 
                     line1 =
                     [
@@ -86,14 +93,36 @@ internal static class Program
                 else
                 {
                     var newLineSegment = new NewLineSegment();
+
+                    long tsHost = SegmentTimer.Start();
                     var hostSegment = new HostSegment();
+                    SegmentTimer.Record(nameof(HostSegment), tsHost);
+
+                    long tsGit = SegmentTimer.Start();
                     var gitSegment = new GitSegment(state.CurrentDirectory.ToString());
+                    SegmentTimer.Record(nameof(GitSegment), tsGit);
+
+                    long tsExitCode = SegmentTimer.Start();
                     var lastCommandExitCodeSegment = new LastCommandExitCodeSegment(state.LastCommandExitCode, state.LastCommandState);
+                    SegmentTimer.Record(nameof(LastCommandExitCodeSegment), tsExitCode);
+
+                    long tsDuration = SegmentTimer.Start();
                     var lastCommandDurationSegment = new LastCommandDurationSegment(state.LastCommandDurationMs, Settings.LastCommandDurationThresholdMs);
+                    SegmentTimer.Record(nameof(LastCommandDurationSegment), tsDuration);
+
+                    long tsDateTime = SegmentTimer.Start();
                     var dateTimeSegment = new DateTimeSegment();
+                    SegmentTimer.Record(nameof(DateTimeSegment), tsDateTime);
+
+                    long tsOs = SegmentTimer.Start();
                     var osSegment = new OsSegment();
+                    SegmentTimer.Record(nameof(OsSegment), tsOs);
+
                     var shellSegment = new StringSegment(" pwsh");
+
+                    long tsPrompt = SegmentTimer.Start();
                     var promptSegment = new PromptSegment(Settings.Prompt);
+                    SegmentTimer.Record(nameof(PromptSegment), tsPrompt);
 
                     int maxPathLength = state.TerminalWidth
                                        - hostSegment.UnformattedLength
@@ -103,7 +132,9 @@ internal static class Program
                                        - dateTimeSegment.UnformattedLength
                                        - 3;
 
+                    long tsPath = SegmentTimer.Start();
                     var pathSegment = new PathSegment(state.CurrentDirectory, state.CurrentDirectoryIsFileSystem, maxPathLength, simpleMode: false);
+                    SegmentTimer.Record(nameof(PathSegment), tsPath);
 
                     var fillerWidth = state.TerminalWidth
                                       - hostSegment.UnformattedLength
@@ -174,7 +205,13 @@ internal static class Program
 
             foreach (var segment in segments)
             {
-                AnsiConsole.MarkupInterpolated($"[yellow]{segment.GetType().Name} ({segment.UnformattedLength})[/]");
+                var typeName = segment.GetType().Name;
+                AnsiConsole.MarkupInterpolated($"[yellow]{typeName} ({segment.UnformattedLength})[/]");
+
+                if (SegmentTimer.Timings is { } timings && timings.TryGetValue(typeName, out var ms))
+                {
+                    AnsiConsole.MarkupInterpolated($" [grey][[{ms:F2}ms]][/]");
+                }
 
                 if (segment is not NewLineSegment)
                 {
