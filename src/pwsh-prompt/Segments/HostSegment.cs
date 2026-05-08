@@ -1,5 +1,4 @@
-﻿using System.Net;
-using System.Text;
+﻿using System.Text;
 
 namespace Prompt.Segments;
 
@@ -7,7 +6,7 @@ internal readonly struct HostSegment : ISegment
 {
     private const string Prefix = "    ";
 
-    private readonly string _hostname = Dns.GetHostName();
+    private readonly string _hostname = Environment.MachineName.ToLowerInvariant();
 
     public HostSegment()
     {
