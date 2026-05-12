@@ -90,12 +90,15 @@ $$"""
           # Discover git directory when working directory changes.
           # Done in PowerShell because child process environment changes (set by the C# binary)
           # do not propagate back to the parent PowerShell process.
+          #
+          # Default $previousGitDir so $gitDirChanged is false when the top guard is skipped
+          # (no directory change since last prompt).
+          $previousGitDir = $env:PROMPT_GIT_DIR
           if ($env:PROMPT_GIT_CACHE_DIR -ne $PWD.Path) {
-              # Clear all git-related state on directory change; the walk below and the
-              # post-invoke block will repopulate them if the new directory is in a repo.
-              # Without this, stale HEAD/BRANCH leak across directories and a later prompt
-              # (when PROMPT_GIT_CACHE_DIR catches up to PWD) ends up caching them as the
-              # "current" branch even though we're no longer in a repo.
+              # Stash the prior git dir so we can detect cross-repo (or in/out of repo) moves
+              # *after* the walk below. Then clear current state defensively; the walk and the
+              # post-invoke block repopulate them if the new directory is in a repo.
+              $previousGitDir = $env:PROMPT_GIT_DIR
               $env:PROMPT_GIT_DIR = ''
               $env:PROMPT_GIT_HEAD = ''
               $env:PROMPT_GIT_BRANCH = ''
@@ -126,10 +129,15 @@ $$"""
               }
           }
 
+          # Cache validity is now keyed on the discovered git dir, not on $PWD.Path.
+          # cd'ing between sibling subdirectories of the same repo leaves $gitDirChanged false,
+          # so we reuse the branch + PR cache and skip the `gh pr view` subprocess.
+          $gitDirChanged = $previousGitDir -ne $env:PROMPT_GIT_DIR
+
           # Check if HEAD changed (detects branch switches, rebases, etc.)
           $headChanged = $false
           $tsHead = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
-          if ($env:PROMPT_GIT_CACHE_DIR -eq $PWD.Path -and $env:PROMPT_GIT_DIR) {
+          if (-not $gitDirChanged -and $env:PROMPT_GIT_DIR) {
               $headFile = [IO.Path]::Combine($env:PROMPT_GIT_DIR, 'HEAD')
               if ([IO.File]::Exists($headFile)) {
                   $currentHead = [IO.File]::ReadAllText($headFile)
@@ -143,7 +151,7 @@ $$"""
               if ($debugTimings.Contains('head-read')) { $debugTimings['head-read'] += $elapsed } else { $debugTimings['head-read'] = $elapsed }
           }
 
-          if ($env:PROMPT_GIT_CACHE_DIR -eq $PWD.Path -and -not $headChanged) {
+          if (-not $gitDirChanged -and -not $headChanged) {
               $env:PROMPT_GIT_DIR_CACHED = $env:PROMPT_GIT_DIR
               $env:PROMPT_GIT_BRANCH_CACHED = $env:PROMPT_GIT_BRANCH
               $env:PROMPT_PR_NUMBER_CACHED = $env:PROMPT_PR_NUMBER

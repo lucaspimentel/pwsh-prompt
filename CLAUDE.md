@@ -69,11 +69,11 @@ The prompt rendering varies by mode:
 
 **Important**: The C# process starts fresh on every prompt invocation, so static caching doesn't work. Instead, caching happens via PowerShell environment variables:
 
-- **PowerShell side** (src/pwsh-prompt/Init.cs): Discovers the git directory by walking up the directory tree (on directory change only). On every prompt, reads `.git/HEAD` and compares to the stored content. If changed, clears caches and re-fetches the PR number. Before invoking C#, passes cached values via `PROMPT_GIT_DIR_CACHED`, `PROMPT_GIT_BRANCH_CACHED`, and `PROMPT_PR_NUMBER_CACHED`.
+- **PowerShell side** (src/pwsh-prompt/Init.cs): Discovers the git directory by walking up the directory tree (on directory change only). After the walk, compares the newly-discovered git dir against the previous one (`$gitDirChanged`). On every prompt, reads `.git/HEAD` and compares to the stored content. If either the git dir changed or HEAD changed, clears caches and re-fetches the PR number. Before invoking C#, passes cached values via `PROMPT_GIT_DIR_CACHED`, `PROMPT_GIT_BRANCH_CACHED`, and `PROMPT_PR_NUMBER_CACHED`.
 
 - **C# side** (src/pwsh-prompt/GitInfo.cs): `TryFindGitFolder()` and `GetBranchName()` check the `*_CACHED` environment variables first. If found, they skip all file I/O.
 
-- **Cache invalidation**: The cache is invalidated when changing directories or when the `.git/HEAD` file content changes (which happens on checkout, commit, rebase, etc).
+- **Cache invalidation**: The cache is invalidated when the discovered `.git` directory changes (moving between repos, or in/out of a repo) or when the `.git/HEAD` file content changes (checkout, commit, rebase, etc). Moving between subdirectories of the same repo does **not** invalidate the cache, so the `gh pr view` subprocess is not re-run on sibling-directory `cd`.
 
 - **Note**: Child process environment changes do not propagate back to the parent PowerShell process, so git metadata is discovered in PowerShell directly rather than relying on C# to write back `*_OUT` env vars.
 

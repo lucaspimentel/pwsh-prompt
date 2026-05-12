@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Avoid redundant `gh pr view` calls when cd'ing within the same git repo by caching branch and PR info per `.git` directory instead of per working directory
+
 ## [0.5.0] - 2026-05-06
 
 ### Changed

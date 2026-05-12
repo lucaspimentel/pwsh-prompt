@@ -128,7 +128,7 @@ The prompt uses a modular segment system where each visual element (path, git br
 Since this runs on every prompt render, performance is critical:
 
 - **Native AOT compilation** eliminates JIT overhead for instant startup
-- **Environment variable caching** avoids repeated git file I/O (cache invalidates on directory change or `.git/HEAD` modification)
+- **Environment variable caching** avoids repeated git file I/O and `gh pr view` subprocess calls (cache invalidates when the discovered `.git` directory changes or `.git/HEAD` is modified — `cd` within the same repo reuses the cache)
 - **Stack-allocated buffers** minimize heap allocations via `ValueStringBuilder`
 - **Smart truncation** calculates exact widths for optimal path display
 
