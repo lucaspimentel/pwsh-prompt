@@ -11,6 +11,11 @@ $$"""
       # Track history ID to detect first prompt and empty prompts (Ctrl+C, Enter with no command)
       [long]$script:lastHistoryId = -1
 
+      # Per-branch PR info cache, keyed by branch name (or commit hash for detached HEAD).
+      # Eliminates repeat `gh pr view` invocations when bouncing between previously-seen branches.
+      # Values: @{ Number = '<n>'; State = '<draft|open|closed>' } — empty strings cached for no-PR results.
+      $script:prCache = @{}
+
       function Invoke-Native {
           param($Executable, $Arguments)
 
@@ -134,21 +139,30 @@ $$"""
           # so we reuse the branch + PR cache and skip the `gh pr view` subprocess.
           $gitDirChanged = $previousGitDir -ne $env:PROMPT_GIT_DIR
 
-          # Check if HEAD changed (detects branch switches, rebases, etc.)
+          # Read HEAD once: derive current branch / detached-HEAD commit and detect HEAD changes.
+          $currentHead = ''
+          $currentBranch = ''       # empty for detached HEAD
+          $currentCacheKey = ''     # branch name, or commit hash for detached HEAD
           $headChanged = $false
           $tsHead = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
-          if (-not $gitDirChanged -and $env:PROMPT_GIT_DIR) {
+          if ($env:PROMPT_GIT_DIR) {
               $headFile = [IO.Path]::Combine($env:PROMPT_GIT_DIR, 'HEAD')
               if ([IO.File]::Exists($headFile)) {
                   $currentHead = [IO.File]::ReadAllText($headFile)
-                  if ($currentHead -ne $env:PROMPT_GIT_HEAD) {
+                  if ($currentHead -match 'ref: refs/heads/(.+)') {
+                      $currentBranch = $matches[1].Trim()
+                      $currentCacheKey = $currentBranch
+                  } else {
+                      # Detached HEAD: cache by commit hash so re-entering the same commit reuses the lookup.
+                      $currentCacheKey = $currentHead.Trim()
+                  }
+                  if (-not $gitDirChanged -and $currentHead -ne $env:PROMPT_GIT_HEAD) {
                       $headChanged = $true
                   }
               }
           }
           if ($debugTimings) {
-              $elapsed = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsHead).TotalMilliseconds
-              if ($debugTimings.Contains('head-read')) { $debugTimings['head-read'] += $elapsed } else { $debugTimings['head-read'] = $elapsed }
+              $debugTimings['head-read'] = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsHead).TotalMilliseconds
           }
 
           if (-not $gitDirChanged -and -not $headChanged) {
@@ -161,14 +175,29 @@ $$"""
               $env:PROMPT_GIT_DIR_CACHED = $env:PROMPT_GIT_DIR
               $env:PROMPT_GIT_BRANCH_CACHED = ''
 
-              # Fetch PR info on branch change (skip if not in a git repo or gh is not available)
-              $tsGhPr = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
-              if ($env:PROMPT_GIT_DIR -and (Get-Command gh -ErrorAction SilentlyContinue)) {
-                  $prInfo = (gh pr view --json number,isDraft,state -q '"\(.number)|\(.state)|\(.isDraft)"' 2>$null)
-                  if ($prInfo) {
-                      $parts = $prInfo -split '\|'
-                      $env:PROMPT_PR_NUMBER = $parts[0]
-                      $env:PROMPT_PR_STATE = if ($parts[2] -eq 'true') { 'draft' } elseif ($parts[1].ToLower() -eq 'closed') { 'closed' } else { 'open' }
+              # Fetch PR info on git dir / HEAD change, using a per-branch cache so toggling
+              # between previously-seen branches skips the 350ms-1.3s `gh pr view` cost.
+              if ($env:PROMPT_GIT_DIR -and $currentCacheKey) {
+                  if ($script:prCache.ContainsKey($currentCacheKey)) {
+                      $entry = $script:prCache[$currentCacheKey]
+                      $env:PROMPT_PR_NUMBER = $entry.Number
+                      $env:PROMPT_PR_STATE = $entry.State
+                  } elseif (Get-Command gh -ErrorAction SilentlyContinue) {
+                      $tsGhPr = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
+                      $prInfo = (gh pr view --json number,isDraft,state -q '"\(.number)|\(.state)|\(.isDraft)"' 2>$null)
+                      if ($prInfo) {
+                          $parts = $prInfo -split '\|'
+                          $env:PROMPT_PR_NUMBER = $parts[0]
+                          $env:PROMPT_PR_STATE = if ($parts[2] -eq 'true') { 'draft' } elseif ($parts[1].ToLower() -eq 'closed') { 'closed' } else { 'open' }
+                      } else {
+                          $env:PROMPT_PR_NUMBER = ''
+                          $env:PROMPT_PR_STATE = ''
+                      }
+                      if ($debugTimings) {
+                          $debugTimings['gh-pr'] = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsGhPr).TotalMilliseconds
+                      }
+                      # Cache the result (including no-PR) so subsequent visits skip gh entirely.
+                      $script:prCache[$currentCacheKey] = @{ Number = $env:PROMPT_PR_NUMBER; State = $env:PROMPT_PR_STATE }
                   } else {
                       $env:PROMPT_PR_NUMBER = ''
                       $env:PROMPT_PR_STATE = ''
@@ -176,9 +205,6 @@ $$"""
               } else {
                   $env:PROMPT_PR_NUMBER = ''
                   $env:PROMPT_PR_STATE = ''
-              }
-              if ($debugTimings) {
-                  $debugTimings['gh-pr'] = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsGhPr).TotalMilliseconds
               }
               $env:PROMPT_PR_NUMBER_CACHED = $env:PROMPT_PR_NUMBER
               $env:PROMPT_PR_STATE_CACHED = $env:PROMPT_PR_STATE
@@ -203,25 +229,11 @@ $$"""
               $debugTimings['invoke-native'] = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsInvoke).TotalMilliseconds
           }
 
-          # Cache git info for next prompt
-          $tsHead2 = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
+          # Cache git info for next prompt (reuse the HEAD we already read above — no second I/O).
           $env:PROMPT_GIT_CACHE_DIR = $PWD.Path
           if ($env:PROMPT_GIT_DIR) {
-              $headFile = [IO.Path]::Combine($env:PROMPT_GIT_DIR, 'HEAD')
-              if ([IO.File]::Exists($headFile)) {
-                  $headContent = [IO.File]::ReadAllText($headFile)
-                  $env:PROMPT_GIT_HEAD = $headContent
-                  # Parse branch name for C# branch cache optimization
-                  if ($headContent -match 'ref: refs/heads/(.+)') {
-                      $env:PROMPT_GIT_BRANCH = $matches[1].Trim()
-                  } else {
-                      $env:PROMPT_GIT_BRANCH = ''
-                  }
-              }
-          }
-          if ($debugTimings) {
-              $elapsed = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsHead2).TotalMilliseconds
-              if ($debugTimings.Contains('head-read')) { $debugTimings['head-read'] += $elapsed } else { $debugTimings['head-read'] = $elapsed }
+              $env:PROMPT_GIT_HEAD = $currentHead
+              $env:PROMPT_GIT_BRANCH = $currentBranch
           }
 
           # notify PSReadLine of a multiline prompt

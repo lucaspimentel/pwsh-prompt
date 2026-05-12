@@ -69,13 +69,15 @@ The prompt rendering varies by mode:
 
 **Important**: The C# process starts fresh on every prompt invocation, so static caching doesn't work. Instead, caching happens via PowerShell environment variables:
 
-- **PowerShell side** (src/pwsh-prompt/Init.cs): Discovers the git directory by walking up the directory tree (on directory change only). After the walk, compares the newly-discovered git dir against the previous one (`$gitDirChanged`). On every prompt, reads `.git/HEAD` and compares to the stored content. If either the git dir changed or HEAD changed, clears caches and re-fetches the PR number. Before invoking C#, passes cached values via `PROMPT_GIT_DIR_CACHED`, `PROMPT_GIT_BRANCH_CACHED`, and `PROMPT_PR_NUMBER_CACHED`.
+- **PowerShell side** (src/pwsh-prompt/Init.cs): Discovers the git directory by walking up the directory tree (on directory change only). After the walk, compares the newly-discovered git dir against the previous one (`$gitDirChanged`). On every prompt, reads `.git/HEAD` once and compares to the stored content. If either the git dir changed or HEAD changed, the cached env vars are refreshed. Before invoking C#, passes cached values via `PROMPT_GIT_DIR_CACHED`, `PROMPT_GIT_BRANCH_CACHED`, `PROMPT_PR_NUMBER_CACHED`, and `PROMPT_PR_STATE_CACHED`.
 
-- **C# side** (src/pwsh-prompt/GitInfo.cs): `TryFindGitFolder()` and `GetBranchName()` check the `*_CACHED` environment variables first. If found, they skip all file I/O.
+- **C# side** (src/pwsh-prompt/GitInfo.cs, src/pwsh-prompt/Segments/GitSegment.cs): `TryFindGitFolder()`, `GetBranchName()`, and `GitSegment` check the `*_CACHED` environment variables first. If found, they skip all file I/O and subprocess calls.
 
 - **Cache invalidation**: The cache is invalidated when the discovered `.git` directory changes (moving between repos, or in/out of a repo) or when the `.git/HEAD` file content changes (checkout, commit, rebase, etc). Moving between subdirectories of the same repo does **not** invalidate the cache, so the `gh pr view` subprocess is not re-run on sibling-directory `cd`.
 
-- **Note**: Child process environment changes do not propagate back to the parent PowerShell process, so git metadata is discovered in PowerShell directly rather than relying on C# to write back `*_OUT` env vars.
+- **Per-branch PR cache** (`$script:prCache` in the `lucas-prompt` dynamic module): a session-scoped hashtable keyed by branch name (or commit hash for detached HEAD) holds previously-fetched PR info. When the git dir / HEAD change triggers a PR refresh, the cache is consulted first; only a miss invokes `gh pr view`. Both "has PR" and "no PR" results are cached so toggling between previously-visited branches always skips `gh`. Lives for the PowerShell session; no persistence and no TTL.
+
+- **Note**: Child process environment changes do not propagate back to the parent PowerShell process, so git metadata is discovered in PowerShell directly rather than relying on C# to write back `*_OUT` env vars. The per-branch PR cache lives in a `$script:`-scoped hashtable on the dynamic module for the same reason.
 
 ## Releases
 

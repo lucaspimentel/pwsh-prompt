@@ -19,7 +19,7 @@
   - On the next `Prompt` invocation, poll the job state and read the result into `$env:PROMPT_PR_NUMBER` / `$env:PROMPT_PR_STATE` if completed
   - Pattern reference: Starship handles slow git lookups this way
   - Need to handle: job lifecycle cleanup, cancelling in-flight jobs when the user changes branches again before the previous one returned, and ensuring the cache key (`PROMPT_GIT_HEAD`) matches the branch the job was launched for
-- [ ] Cache `gh pr` results per-branch instead of single-slot
+- [x] Cache `gh pr` results per-branch instead of single-slot
   - Current cache (`Init.cs:131-134`) holds one branch's PR info; bouncing between `main` and `feature-x` re-runs `gh pr view` each direction (~350 ms - 1.3 s per switch)
   - Replace the flat `$env:PROMPT_PR_NUMBER` / `$env:PROMPT_PR_STATE` env vars with a small in-memory hashtable keyed by branch name, populated on first lookup
   - Keep an env var copy for the current branch so the C# binary still reads via `PROMPT_PR_NUMBER_CACHED` / `PROMPT_PR_STATE_CACHED` unchanged
