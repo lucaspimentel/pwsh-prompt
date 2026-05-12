@@ -16,6 +16,12 @@ $$"""
       # Values: @{ Number = '<n>'; State = '<draft|open|closed>' } — empty strings cached for no-PR results.
       $script:prCache = @{}
 
+      # In-flight background `gh pr view` job (single-slot). Tagged with a CacheKey NoteProperty
+      # so we know which branch it was launched for. Result is harvested into $script:prCache
+      # at the top of Prompt. If the user switches to a different branch before the job lands,
+      # we cancel it and spawn a new one keyed to the new branch.
+      $script:prJob = $null
+
       function Invoke-Native {
           param($Executable, $Arguments)
 
@@ -59,6 +65,42 @@ $$"""
           $stdout.Result;
       }
 
+      # Harvest a completed (or failed) async PR-lookup job into $script:prCache. The result is
+      # cached under the job's original branch key, so an A→B→A toggle finds A's result
+      # whenever its job lands — even if we're currently on B.
+      function Receive-PendingPrJob {
+          if (-not $script:prJob) { return }
+          if ($script:prJob.State -notin 'Completed','Failed','Stopped') { return }
+          try {
+              if ($script:prJob.State -eq 'Completed') {
+                  $result = Receive-Job -Job $script:prJob -ErrorAction SilentlyContinue
+                  $key = $script:prJob.CacheKey
+                  if ($key) {
+                      $num = ''
+                      $state = ''
+                      if ($result) {
+                          $parts = ([string]$result) -split '\|'
+                          $num   = $parts[0]
+                          $state = if ($parts[2] -eq 'true') { 'draft' } elseif ($parts[1].ToLower() -eq 'closed') { 'closed' } else { 'open' }
+                      }
+                      # Cache the result (including no-PR) so subsequent visits skip gh entirely.
+                      $script:prCache[$key] = @{ Number = $num; State = $state }
+                      # If we're still on the branch the job was launched for, seed the env vars so
+                      # the downstream cache-propagation path picks up the result on this prompt.
+                      $currentKey = if ($env:PROMPT_GIT_BRANCH) { $env:PROMPT_GIT_BRANCH } else { ([string]$env:PROMPT_GIT_HEAD).Trim() }
+                      if ($currentKey -eq $key) {
+                          $env:PROMPT_PR_NUMBER = $num
+                          $env:PROMPT_PR_STATE  = $state
+                      }
+                  }
+              }
+              # Failed/Stopped: drop without caching so the next prompt retries.
+          } finally {
+              Remove-Job -Job $script:prJob -Force -ErrorAction SilentlyContinue
+              $script:prJob = $null
+          }
+      }
+
       function global:Prompt {
           $origDollarQuestion = $global:?
           $origLastExitCode = $global:LASTEXITCODE
@@ -66,6 +108,16 @@ $$"""
           # Per-op + total prompt wall-clock, shown when DEBUG_PROMPT=1
           $debugTimings = if ($env:DEBUG_PROMPT -eq '1') { [System.Collections.Specialized.OrderedDictionary]::new() } else { $null }
           $debugStart = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
+
+          # Harvest any completed async `gh pr view` job into $script:prCache before deciding
+          # whether to launch a new lookup further down. Cheap no-op when nothing is in flight.
+          if ($script:prJob) {
+              $tsHarvest = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
+              Receive-PendingPrJob
+              if ($debugTimings) {
+                  $debugTimings['gh-pr-harvest'] = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsHarvest).TotalMilliseconds
+              }
+          }
 
           # Shell integration escape sequences (Windows Terminal, iTerm2, etc.)
           # ESC ] <code> ; <data> ST
@@ -183,21 +235,39 @@ $$"""
                       $env:PROMPT_PR_NUMBER = $entry.Number
                       $env:PROMPT_PR_STATE = $entry.State
                   } elseif (Get-Command gh -ErrorAction SilentlyContinue) {
-                      $tsGhPr = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
-                      $prInfo = (gh pr view --json number,isDraft,state -q '"\(.number)|\(.state)|\(.isDraft)"' 2>$null)
-                      if ($prInfo) {
-                          $parts = $prInfo -split '\|'
-                          $env:PROMPT_PR_NUMBER = $parts[0]
-                          $env:PROMPT_PR_STATE = if ($parts[2] -eq 'true') { 'draft' } elseif ($parts[1].ToLower() -eq 'closed') { 'closed' } else { 'open' }
-                      } else {
-                          $env:PROMPT_PR_NUMBER = ''
-                          $env:PROMPT_PR_STATE = ''
+                      # Spawn a background `gh pr view` so the prompt doesn't block. PR info will
+                      # appear on the next prompt invocation when Receive-PendingPrJob harvests it.
+                      $alreadyPending = $script:prJob -and `
+                                        $script:prJob.CacheKey -eq $currentCacheKey -and `
+                                        $script:prJob.State -in 'Running','NotStarted'
+                      if (-not $alreadyPending) {
+                          # Cancel any in-flight job for a different branch — it would only ever
+                          # cache a stale-branch result, which is fine but wastes the gh call.
+                          if ($script:prJob) {
+                              Stop-Job   -Job $script:prJob -ErrorAction SilentlyContinue
+                              Remove-Job -Job $script:prJob -Force -ErrorAction SilentlyContinue
+                              $script:prJob = $null
+                          }
+                          $tsSpawn = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
+                          # Prefer ThreadJob (in-process, low overhead, bundled with pwsh 7+);
+                          # fall back to Start-Job on older / stripped installs.
+                          $startJob = Get-Command Start-ThreadJob -ErrorAction SilentlyContinue
+                          if (-not $startJob) { $startJob = Get-Command Start-Job }
+                          # Jobs don't inherit $PWD; pass it explicitly so `gh` runs inside the repo.
+                          $cwd = $PWD.ProviderPath
+                          $script:prJob = & $startJob -ScriptBlock {
+                              param($wd)
+                              Set-Location -LiteralPath $wd
+                              (gh pr view --json number,isDraft,state -q '"\(.number)|\(.state)|\(.isDraft)"' 2>$null)
+                          } -ArgumentList $cwd
+                          Add-Member -InputObject $script:prJob -NotePropertyName CacheKey -NotePropertyValue $currentCacheKey -Force
+                          if ($debugTimings) {
+                              $debugTimings['gh-pr-spawn'] = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsSpawn).TotalMilliseconds
+                          }
                       }
-                      if ($debugTimings) {
-                          $debugTimings['gh-pr'] = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsGhPr).TotalMilliseconds
-                      }
-                      # Cache the result (including no-PR) so subsequent visits skip gh entirely.
-                      $script:prCache[$currentCacheKey] = @{ Number = $env:PROMPT_PR_NUMBER; State = $env:PROMPT_PR_STATE }
+                      # PR info is empty for this prompt; the next prompt will harvest the job's result.
+                      $env:PROMPT_PR_NUMBER = ''
+                      $env:PROMPT_PR_STATE = ''
                   } else {
                       $env:PROMPT_PR_NUMBER = ''
                       $env:PROMPT_PR_STATE = ''

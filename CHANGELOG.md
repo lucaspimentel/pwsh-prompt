@@ -5,6 +5,7 @@
 ### Changed
 - Avoid redundant `gh pr view` calls when cd'ing within the same git repo by caching branch and PR info per `.git` directory instead of per working directory
 - Cache `gh pr` results per branch so toggling between previously-visited branches skips the lookup
+- Move `gh pr view` to a background job so first-visit to a new branch doesn't block the prompt; PR info appears on the next prompt
 
 ## [0.5.0] - 2026-05-06
 

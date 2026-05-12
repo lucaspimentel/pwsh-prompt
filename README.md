@@ -130,6 +130,7 @@ Since this runs on every prompt render, performance is critical:
 - **Native AOT compilation** eliminates JIT overhead for instant startup
 - **Environment variable caching** avoids repeated git file I/O and `gh pr view` subprocess calls (cache invalidates when the discovered `.git` directory changes or `.git/HEAD` is modified — `cd` within the same repo reuses the cache)
 - **Per-branch PR cache** keeps PR info for every branch visited in the current shell session, so toggling between branches doesn't re-run `gh pr view`
+- **Non-blocking PR lookup**: on the first visit to a new branch, `gh pr view` runs in a background job so the prompt renders immediately; the PR number appears on the next prompt
 - **Stack-allocated buffers** minimize heap allocations via `ValueStringBuilder`
 - **Smart truncation** calculates exact widths for optimal path display
 

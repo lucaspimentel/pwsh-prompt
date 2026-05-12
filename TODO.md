@@ -13,7 +13,7 @@
   - OSC 133;D — mark previous command finished with exit code (must fire before C# binary invocation)
   - These are protocol-level markers, not visual — they belong in the shell wrapper, not the C# rendering
   - Ref: [Shell Integration](https://learn.microsoft.com/en-us/windows/terminal/tutorials/shell-integration), [New Tab Same Directory](https://learn.microsoft.com/en-us/windows/terminal/tutorials/new-tab-same-directory)
-- [ ] Background-fetch `gh pr view` so branch changes don't block the prompt
+- [x] Background-fetch `gh pr view` so branch changes don't block the prompt
   - Currently `Init.cs:142` calls `gh pr view` synchronously inside the `Prompt` function on cache invalidation; measured cost is 350 ms (no PR) to 1.3 s (new repo) per branch change
   - Fire the lookup as a `Start-Job` (or `Start-ThreadJob`) and return immediately; the prompt right after a branch change shows no PR
   - On the next `Prompt` invocation, poll the job state and read the result into `$env:PROMPT_PR_NUMBER` / `$env:PROMPT_PR_STATE` if completed
