@@ -91,7 +91,14 @@ $$"""
           # Done in PowerShell because child process environment changes (set by the C# binary)
           # do not propagate back to the parent PowerShell process.
           if ($env:PROMPT_GIT_CACHE_DIR -ne $PWD.Path) {
+              # Clear all git-related state on directory change; the walk below and the
+              # post-invoke block will repopulate them if the new directory is in a repo.
+              # Without this, stale HEAD/BRANCH leak across directories and a later prompt
+              # (when PROMPT_GIT_CACHE_DIR catches up to PWD) ends up caching them as the
+              # "current" branch even though we're no longer in a repo.
               $env:PROMPT_GIT_DIR = ''
+              $env:PROMPT_GIT_HEAD = ''
+              $env:PROMPT_GIT_BRANCH = ''
               $searchPath = $PWD.Path
               while ($searchPath) {
                   $gitPath = [IO.Path]::Combine($searchPath, '.git')

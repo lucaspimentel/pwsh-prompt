@@ -13,11 +13,17 @@ internal static partial class GitInfo
 {
     public static StringSegment GetBranchName(string path)
     {
-        // Check environment variable cache first
-        var cachedBranch = Environment.GetEnvironmentVariable("PROMPT_GIT_BRANCH_CACHED");
-        if (!string.IsNullOrEmpty(cachedBranch))
+        // Check environment variable cache first. PowerShell sets PROMPT_GIT_DIR_CACHED
+        // and PROMPT_GIT_BRANCH_CACHED together; if the git dir cache is empty, the
+        // branch cache (if any) is stale and must not be used.
+        var cachedGitDir = Environment.GetEnvironmentVariable("PROMPT_GIT_DIR_CACHED");
+        if (!string.IsNullOrEmpty(cachedGitDir))
         {
-            return cachedBranch;
+            var cachedBranch = Environment.GetEnvironmentVariable("PROMPT_GIT_BRANCH_CACHED");
+            if (!string.IsNullOrEmpty(cachedBranch))
+            {
+                return cachedBranch;
+            }
         }
 
         if (!TryFindGitFolder(path, out var gitFolder))
