@@ -2,10 +2,17 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-05-15
+
 ### Changed
 - Avoid redundant `gh pr view` calls when cd'ing within the same git repo by caching branch and PR info per `.git` directory instead of per working directory
 - Cache `gh pr` results per branch so toggling between previously-visited branches skips the lookup
 - Move `gh pr view` to a background job so first-visit to a new branch doesn't block the prompt; PR info appears on the next prompt
+- Skip `gh pr` lookup entirely when the current directory is not inside a git repo
+- Update Microsoft.Extensions.Primitives to 10.0.7
+
+### Fixed
+- Fix stale git branch leaking into non-git directories after leaving a repo
 
 ## [0.5.0] - 2026-05-06
 
