@@ -1,6 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [0.7.0] - 2026-06-16
+
+### Changed
+- Update Spectre.Console to 0.57.0
+- Update Microsoft.Extensions.Primitives to 10.0.9
 
 ## [0.6.0] - 2026-05-15
 
