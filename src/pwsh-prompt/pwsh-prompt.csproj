@@ -38,7 +38,7 @@
     <ItemGroup>
         <PackageReference Include="CommunityToolkit.Diagnostics" Version="8.4.2" />
         <PackageReference Include="Microsoft.Extensions.Primitives" Version="10.0.9" />
-        <PackageReference Include="Spectre.Console" Version="0.57.0" />
+        <PackageReference Include="Spectre.Console" Version="0.57.1" />
         <PackageReference Include="Spectre.Console.Analyzer" Version="1.0.0" PrivateAssets="All" />
     </ItemGroup>
 
