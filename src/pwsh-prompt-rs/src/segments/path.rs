@@ -2,8 +2,8 @@
 // a git or default icon, repo-relative or home-relative display, and
 // separator-based truncation.
 //
-// All index arithmetic operates on UTF-16 code units to match the C#
-// StringSegment/String.Length semantics exactly.
+// Lengths are counted in Unicode code points (matching the C#
+// LengthInCodePoints helper), so astral-plane characters count as one column.
 
 use crate::ansi::{self, DebugSink};
 use crate::env::EnvSource;
@@ -39,15 +39,6 @@ impl PathSegment {
         if !is_file_system {
             return segment;
         }
-
-        let process_directory = std::env::current_exe().ok().and_then(|exe| {
-            let dir = path_utils::get_directory_name(&exe.to_string_lossy());
-            if dir.is_empty() { None } else { Some(dir) }
-        });
-
-        let Some(_) = process_directory else {
-            return segment;
-        };
 
         if let Some(git_directory) = git_info::try_find_git_folder(current_directory, env, sink) {
             segment.is_git_repo = true;
@@ -134,7 +125,7 @@ impl super::Segment for PathSegment {
 
     fn unformatted_length(&self) -> i32 {
         let length =
-            ansi::utf16_len(&self.current_directory_display) + ansi::utf16_len(self.prefix());
+            ansi::char_len(&self.current_directory_display) + ansi::char_len(self.prefix());
 
         match (self.is_in_user_home, self.is_truncated) {
             (true, true) => length + 5,  // "~/..."
@@ -156,7 +147,7 @@ impl super::Segment for PathSegment {
         }
 
         if self.is_in_user_home && self.is_truncated {
-            out.push(path_separator()); // Path.PathSeparator
+            out.push(std::path::MAIN_SEPARATOR); // Path.DirectorySeparatorChar
         }
 
         if self.is_truncated {
@@ -177,7 +168,7 @@ impl super::Segment for PathSegment {
         }
 
         if self.is_in_user_home && self.is_truncated {
-            text.push(path_separator());
+            text.push(std::path::MAIN_SEPARATOR);
         }
 
         if self.is_truncated {
@@ -190,11 +181,6 @@ impl super::Segment for PathSegment {
     }
 }
 
-/// System.IO.Path.PathSeparator: ';' on Windows, ':' on Unix.
-fn path_separator() -> char {
-    if cfg!(windows) { ';' } else { ':' }
-}
-
 /// Environment.GetFolderPath(SpecialFolder.UserProfile) equivalent. The
 /// USERPROFILE environment variable is what Windows resolves for the user
 /// profile; on Unix, $HOME (falling back to getpwuid via HOME being unset).
@@ -204,22 +190,23 @@ fn user_profile_directory(env: &dyn EnvSource) -> String {
 }
 
 /// PathSegment.TryShortenPath equivalent. When the path exceeds
-/// max_path_length (in UTF-16 units), walks the string and cuts at the first
+/// max_path_length (in code points), walks the string and cuts at the first
 /// separator whose suffix plus "..." fits. Returns Some(suffix) when
-/// truncated.
+/// truncated. Separators are always BMP, so the cut point is a valid
+/// code-point boundary.
 fn try_shorten_path(path: &str, max_path_length: i32) -> Option<String> {
-    let units: Vec<u16> = path.encode_utf16().collect();
+    let total_code_points = path.chars().count() as i64;
 
-    if units.len() as i64 <= i64::from(max_path_length) {
+    if total_code_points <= i64::from(max_path_length) {
         return None;
     }
 
-    for (i, &unit) in units.iter().enumerate() {
-        if unit == b'\\' as u16 || unit == b'/' as u16 {
-            let new_length = units.len() as i64 - i as i64 + 3;
+    for (code_points_seen, (byte_index, c)) in path.char_indices().enumerate() {
+        if c == '\\' || c == '/' {
+            let new_length = total_code_points - code_points_seen as i64 + 3;
 
             if new_length > 0 && new_length <= i64::from(max_path_length) {
-                return Some(String::from_utf16_lossy(&units[i..]));
+                return Some(path[byte_index..].to_string());
             }
         }
     }
@@ -228,9 +215,9 @@ fn try_shorten_path(path: &str, max_path_length: i32) -> Option<String> {
     None
 }
 
-/// Case-insensitive prefix check on UTF-16 code units, mirroring
+/// Case-insensitive prefix check, mirroring
 /// StringComparison.OrdinalIgnoreCase for ASCII and exact comparison for
-/// non-ASCII units.
+/// other characters.
 fn starts_with_ignore_case_units(path: &str, prefix: &str) -> bool {
     let path_units: Vec<u16> = path.encode_utf16().collect();
     let prefix_units: Vec<u16> = prefix.encode_utf16().collect();
@@ -251,7 +238,7 @@ fn starts_with_ignore_case_units(path: &str, prefix: &str) -> bool {
             })
 }
 
-/// The remainder of path after the prefix, in UTF-16 units.
+/// The remainder of path after the prefix.
 fn substring_after_units(path: &str, prefix: &str) -> String {
     let prefix_units: Vec<u16> = prefix.encode_utf16().collect();
     let units: Vec<u16> = path.encode_utf16().collect();
@@ -317,7 +304,7 @@ mod tests {
         );
         assert_eq!(
             segment.unformatted_length(),
-            ansi::utf16_len(&dir.to_string_lossy()) + 4
+            ansi::char_len(&dir.to_string_lossy()) + 4
         );
 
         // In a repo, non-simple: display relative to the repo's parent.
@@ -339,7 +326,7 @@ mod tests {
         );
         assert_eq!(
             segment.unformatted_length(),
-            4 + ansi::utf16_len(&format!("repo{SEP}src{SEP}deep"))
+            4 + ansi::char_len(&format!("repo{SEP}src{SEP}deep"))
         );
 
         // Simple mode keeps the full path (with the git prefix).
@@ -368,7 +355,7 @@ mod tests {
         );
         assert_eq!(
             segment.unformatted_length(),
-            4 + 1 + ansi::utf16_len(&format!("{MAIN_SEPARATOR}.cache"))
+            4 + 1 + ansi::char_len(&format!("{MAIN_SEPARATOR}.cache"))
         );
 
         // Exactly at the home root: just "~".

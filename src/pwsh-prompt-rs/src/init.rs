@@ -1,17 +1,19 @@
 // Port of Init.GetPowerShell: emits the PowerShell init script with
 // {{processName}} replaced by the running executable's path.
 //
-// The script text is checked in at init.ps1 (extracted byte-for-byte from the
-// C# implementation's output on a UTF-8 console). The file is stored with the
-// working tree's native line endings (CRLF on Windows checkouts, LF on Unix),
-// mirroring how the C# raw string literal inherits the source file's line
-// endings at build time. Console.WriteLine appends the platform's newline at
-// the end.
+// The script text is checked in at init.ps1 (extracted from the C#
+// implementation's output). Line endings are normalized to LF on output,
+// matching the C# Init normalization, so the emitted script is byte-identical
+// regardless of the working tree's checkout style. Console.WriteLine appends
+// the platform's newline at the end.
 
 const TEMPLATE: &str = include_str!("../init.ps1");
 
 pub fn get_power_shell(process_name: &str) -> String {
-    TEMPLATE.replace("{{processName}}", process_name)
+    // CRLF checkouts must produce the same bytes as LF ones.
+    TEMPLATE
+        .replace("\r\n", "\n")
+        .replace("{{processName}}", process_name)
 }
 
 /// Full init output: the script plus the trailing newline that
@@ -42,13 +44,15 @@ mod tests {
 
     #[test]
     fn script_starts_and_ends_like_the_csharp_output() {
-        // The raw string includes a leading empty line and ends with the
-        // module's closing brace followed by a platform newline (CRLF on
-        // Windows checkouts, LF on Unix).
+        // The normalized script starts with a leading empty line and ends with
+        // the module's closing brace followed by an LF.
         assert!(
             TEMPLATE.starts_with("\r\n# Create a new dynamic module")
                 || TEMPLATE.starts_with("\n# Create a new dynamic module")
         );
         assert!(TEMPLATE.ends_with("}\r\n") || TEMPLATE.ends_with("}\n"));
+        let script = get_power_shell("X");
+        assert!(!script.contains("\r\n"));
+        assert!(script.ends_with("}\n"));
     }
 }

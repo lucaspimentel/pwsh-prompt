@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using Spectre.Console;
 
 namespace Prompt.Segments;
 
@@ -22,42 +21,6 @@ internal readonly struct PathSegment : ISegment
             return;
         }
 
-        var processDirectory = Path.GetDirectoryName(Environment.ProcessPath);
-
-        if (processDirectory is null)
-        {
-            return;
-        }
-
-        /*
-        string mapDefinitionFilename = Path.Combine(processDirectory, "prompt-path-mappings.txt");
-
-        if (File.Exists(mapDefinitionFilename))
-        {
-            var lines = File.ReadLines(mapDefinitionFilename);
-
-            foreach (string line in lines)
-            {
-                var lineSpan = line.AsSpan();
-                var split = line.IndexOf('|');
-
-                if (split > 0)
-                {
-                    var key = lineSpan[..split];
-                    var currentDirectorySpan = currentDirectory.AsSpan().TrimEnd(@"/\");
-
-                    // if current directory equals "key", or starts with "key/" or "key\", replace "key" with "value"
-                    if (currentDirectorySpan.StartsWith(key, StringComparison.OrdinalIgnoreCase) &&
-                        (currentDirectorySpan.Length == key.Length || currentDirectorySpan[key.Length] is '/' or '\\'))
-                    {
-                        var value = lineSpan[(split + 1)..].TrimEnd(@"/\");
-                        _currentDirectoryDisplay = ShortenPath(string.Concat(value, currentDirectorySpan[key.Length..]), maxPathLength);
-                        return;
-                    }
-                }
-            }
-        }
-        */
 
         if (GitInfo.TryFindGitFolder(currentDirectory, out var gitDirectory))
         {
@@ -101,7 +64,7 @@ internal readonly struct PathSegment : ISegment
 
             if (Settings.Debug)
             {
-                AnsiConsole.MarkupLineInterpolated($"[yellow]userProfileDirectory: {userProfileDirectory}[/]");
+                DebugOut.YellowLine($"userProfileDirectory: {userProfileDirectory}");
             }
 
             if (currentDirectory.StartsWith(userProfileDirectory, StringComparison.OrdinalIgnoreCase))
@@ -114,14 +77,14 @@ internal readonly struct PathSegment : ISegment
 
         if (Settings.Debug)
         {
-            AnsiConsole.MarkupLineInterpolated($"[yellow]displayPath before truncating: {_currentDirectoryDisplay}[/]");
+            DebugOut.YellowLine($"displayPath before truncating: {_currentDirectoryDisplay}");
         }
 
         _isTruncated = TryShortenPath(_currentDirectoryDisplay, maxPathLength, out _currentDirectoryDisplay);
 
         if (Settings.Debug)
         {
-            AnsiConsole.MarkupLineInterpolated($"[yellow]displayPath after truncating: {_currentDirectoryDisplay}[/]");
+            DebugOut.YellowLine($"displayPath after truncating: {_currentDirectoryDisplay}");
         }
     }
 
@@ -129,7 +92,7 @@ internal readonly struct PathSegment : ISegment
     {
         get
         {
-            var length = _currentDirectoryDisplay.Length + (_isGitRepo ? GitPrefix.Length : DefaultPrefix.Length);
+            var length = SegmentUtils.LengthInCodePoints(_currentDirectoryDisplay.AsSpan()) + (_isGitRepo ? GitPrefix.Length : DefaultPrefix.Length);
 
             return (_isInUserHome, _isTruncated) switch
             {
@@ -148,20 +111,25 @@ internal readonly struct PathSegment : ISegment
     {
         truncatedSegment = path;
 
-        if (path.Length <= maxPathLength)
+        // Compare and cut in code points so astral-plane characters count as
+        // one column. Separators are always BMP, so the cut point is a valid
+        // code-point boundary.
+        var totalCodePoints = SegmentUtils.LengthInCodePoints(path.AsSpan());
+
+        if (totalCodePoints <= maxPathLength)
         {
             return false;
         }
 
-        Span<char> separator = stackalloc char[2];
-        separator[0] = Path.DirectorySeparatorChar;
-        separator[1] = Path.AltDirectorySeparatorChar;
+        var separator = Path.DirectorySeparatorChar;
+        var altSeparator = Path.AltDirectorySeparatorChar;
+        var codePointsSeen = 0;
 
-        for (var i = 0; i < path.Length; i++)
+        for (var i = 0; i < path.Length;)
         {
-            if (path[i] == separator[0] || path[i] == separator[1])
+            if (path[i] == separator || path[i] == altSeparator)
             {
-                var newLength = path.Length - i + 3;
+                var newLength = totalCodePoints - codePointsSeen + 3;
 
                 if (0 < newLength && newLength <= maxPathLength)
                 {
@@ -169,6 +137,9 @@ internal readonly struct PathSegment : ISegment
                     return true;
                 }
             }
+
+            i += char.IsSurrogate(path[i]) && i + 1 < path.Length && char.IsSurrogatePair(path[i], path[i + 1]) ? 2 : 1;
+            codePointsSeen++;
         }
 
         // couldn't find a separator to truncate at
@@ -189,7 +160,9 @@ internal readonly struct PathSegment : ISegment
 
         if (_isInUserHome && _isTruncated)
         {
-            sb.Append(Path.PathSeparator);
+            // Directory separator; this previously appended Path.PathSeparator
+            // (';'), producing "~;..." on Windows.
+            sb.Append(Path.DirectorySeparatorChar);
         }
 
         if (_isTruncated)

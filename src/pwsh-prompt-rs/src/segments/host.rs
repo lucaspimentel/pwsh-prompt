@@ -1,6 +1,6 @@
-// Port of HostSegment: lowercase machine name in blue. Note the C#
-// implementation appends a trailing space inside the colored range that is
-// NOT counted by UnformattedLength; reproduced faithfully.
+// Port of HostSegment: lowercase machine name in blue, followed by a
+// trailing space inside the colored range. The space is part of the layout
+// width (it was previously uncounted, under-reserving one column).
 
 pub struct HostSegment {
     hostname: String,
@@ -29,7 +29,7 @@ impl super::Segment for HostSegment {
 
     fn unformatted_length(&self) -> i32 {
         let prefix = Self::prefix();
-        crate::ansi::utf16_len(prefix) + crate::ansi::utf16_len(&self.hostname)
+        crate::ansi::char_len(prefix) + crate::ansi::char_len(&self.hostname) + 1 // trailing space emitted by append
     }
 
     fn append(&self, out: &mut String) {
@@ -58,11 +58,12 @@ mod tests {
         segment.append(&mut out);
         assert!(out.starts_with("\x1b[38;5;12m  \u{F108}  "));
         assert!(out.ends_with(" \x1b[0m"));
-        // UnformattedLength excludes the trailing space appended by Append.
+        // UnformattedLength includes the trailing space appended by append.
         assert_eq!(
             segment.unformatted_length(),
-            crate::ansi::utf16_len(HostSegment::prefix())
-                + crate::ansi::utf16_len(&segment.display_text())
+            crate::ansi::char_len(HostSegment::prefix())
+                + crate::ansi::char_len(&segment.display_text())
+                + 1
         );
         // ToString override: only the hostname.
         assert!(!segment.display_text().contains('\u{F108}'));

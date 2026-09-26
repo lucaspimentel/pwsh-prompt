@@ -52,8 +52,8 @@ internal readonly struct GitSegment : ISegment
             }
             else
             {
-                int prPrefixLength = _prNumber != null ? _prIcon.Length + _prNumber.Length : 0;
-                return BranchPrefix.Length + _branchName.Length + prPrefixLength;
+                int prPrefixLength = _prNumber != null ? PrIconOpen.Length + SegmentUtils.LengthInCodePoints(_prNumber) : 0;
+                return BranchPrefix.Length + SegmentUtils.LengthInCodePoints(_branchName.AsSpan()) + prPrefixLength;
             }
         }
     }

@@ -10,8 +10,9 @@ internal readonly struct LastCommandDurationSegment : ISegment
     private readonly int _thresholdMs;
     private readonly string _unformattedString;
 
-    // Length -1 because "󰥕" has length 2, but only takes up 1 column
-    public int UnformattedLength => string.IsNullOrEmpty(_unformattedString) ? 0 : _unformattedString.Length - 1;
+    // Code-point length: the clock glyph is a single code point occupying a
+    // single terminal column.
+    public int UnformattedLength => string.IsNullOrEmpty(_unformattedString) ? 0 : SegmentUtils.LengthInCodePoints(_unformattedString);
 
     public LastCommandDurationSegment(int lastCommandDurationMs, int thresholdMs)
     {
@@ -68,7 +69,7 @@ internal readonly struct LastCommandDurationSegment : ISegment
 
                 if (minutes >= 1000)
                 {
-                    sb.AppendSpanFormattable(minutes, "N");
+                    sb.AppendSpanFormattable(minutes);
                 }
                 else
                 {

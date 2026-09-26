@@ -16,7 +16,7 @@ impl super::Segment for PromptSegment {
     }
 
     fn unformatted_length(&self) -> i32 {
-        crate::ansi::utf16_len(self.prompt)
+        crate::ansi::char_len(self.prompt)
     }
 
     fn append(&self, out: &mut String) {

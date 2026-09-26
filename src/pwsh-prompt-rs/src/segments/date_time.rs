@@ -2,10 +2,9 @@
 // (12-hour clock, no leading zero on the hour, uppercase invariant AM/PM,
 // matching the C# invariant/en-US rendering).
 //
-// Width quirk reproduced: UnformattedLength adds 1 when Hour % 12 >= 10,
-// because the "h" specifier renders two digits at hours 10 and 11. Hours 0
-// and 12 also render two digits ("12") but do not get the +1; the C#
-// implementation behaves the same way.
+// Width: UnformattedLength adds 1 when the rendered hour has two digits,
+// i.e. at hours 10, 11 and 12 (h renders without a leading zero, and hour 0
+// renders as "12" on the 12-hour clock).
 
 use chrono::{Datelike, Local, Timelike};
 
@@ -34,7 +33,7 @@ impl DateTimeSegment {
 }
 
 /// Renders the format string; `hour` is the 24-hour input hour, kept for the
-/// width quirk (see module docs).
+/// width calculation (see module docs).
 pub fn render_datetime(
     year: i32,
     month: u32,
@@ -59,10 +58,11 @@ impl super::Segment for DateTimeSegment {
     }
 
     fn unformatted_length(&self) -> i32 {
-        if self.hour % 12 < 10 {
-            FORMAT_LENGTH
-        } else {
+        // Hours 10, 11 and 12 render a two-digit hour (0 renders as "12").
+        if self.hour.is_multiple_of(12) || self.hour % 12 >= 10 {
             FORMAT_LENGTH + 1
+        } else {
+            FORMAT_LENGTH
         }
     }
 
@@ -92,7 +92,7 @@ mod tests {
     }
 
     #[test]
-    fn length_quirk_matches_csharp() {
+    fn length_matches_two_digit_hours() {
         let length_for = |hour: u32| {
             let rendered = render_datetime(2026, 9, 26, hour, 8);
             let segment = DateTimeSegment {
@@ -101,15 +101,15 @@ mod tests {
             };
             segment.unformatted_length()
         };
-        // Template length is 20; hours 10 and 11 render a two-digit hour.
+        // Template length is 20; two-digit hours render 21 characters.
+        assert_eq!(length_for(0), 21);
         assert_eq!(length_for(9), 20);
         assert_eq!(length_for(10), 21);
         assert_eq!(length_for(11), 21);
-        // Hours 0 and 12 render "12" (two digits) but keep 20, matching C#.
-        assert_eq!(length_for(0), 20);
-        assert_eq!(length_for(12), 20);
+        assert_eq!(length_for(12), 21);
+        assert_eq!(length_for(13), 20);
         // Rendered text at hour 11 is 21 characters.
-        assert_eq!(crate::ansi::utf16_len(&render(11)), 21);
+        assert_eq!(crate::ansi::char_len(&render(11)), 21);
     }
 
     #[test]

@@ -1,9 +1,10 @@
 // Entry point. Modes (matching the C# Program.Main switch):
-//   --version          prints the informational version
+//   --version          prints the version
 //   init               prints the PowerShell init script
 //   prompt [args...]   renders the prompt
 //   (no arguments)     prints usage
-//   anything else      prints nothing (no default case in the C# switch)
+//   anything else      prints usage (both implementations treat unknown
+//                      verbs like empty input)
 
 mod ansi;
 mod args;
@@ -18,14 +19,8 @@ use ansi::{DebugSink, DebugSpan};
 use env::RealEnv;
 use segments::{Segment, StringSegment};
 
-const VERSION_SHA: &str = env!("PROMPT_GIT_SHA");
-
 fn version_string() -> String {
-    if VERSION_SHA.is_empty() {
-        env!("CARGO_PKG_VERSION").to_string()
-    } else {
-        format!("{}+{}", env!("CARGO_PKG_VERSION"), VERSION_SHA)
-    }
+    env!("CARGO_PKG_VERSION").to_string()
 }
 
 fn main() {
@@ -49,15 +44,19 @@ fn main() {
             ansi::write_plain_line("       Prompt prompt [arguments]");
             ansi::write_plain_line("       Prompt --version");
         }
-        _ => {}
+        _ => {
+            // Unknown verb: print usage like empty input instead of
+            // silently doing nothing.
+            ansi::write_plain_line("Usage: Prompt init");
+            ansi::write_plain_line("       Prompt prompt [arguments]");
+            ansi::write_plain_line("       Prompt --version");
+        }
     }
 }
 
 fn run_prompt(args: &[String]) {
     let state = args::Arguments::parse(args);
-    // AnsiConsole's profile width is terminalWidth * 2; it governs the
-    // wrapping of DEBUG output lines.
-    let sink = ansi::DebugSink::new(settings::debug(), state.terminal_width.saturating_mul(2));
+    let sink = ansi::DebugSink::new(settings::debug());
     let env = RealEnv;
     let debug = sink.enabled();
 
@@ -379,7 +378,7 @@ mod tests {
         );
         // The wide segment marks the line full and is skipped; the same
         // applies to every segment after it on that line.
-        assert_eq!(out, "\r\n\r\nafter");
+        assert_eq!(out, format!("{nl}{nl}after", nl = ansi::platform_newline()));
     }
 
     #[test]
@@ -387,7 +386,7 @@ mod tests {
         let a = StringSegment::new("aaaa");
         let b = StringSegment::new("bbbb");
         let out = combine(vec![Box::new(a), Box::new(NewLineSegment), Box::new(b)], 5);
-        assert_eq!(out, "aaaa\r\nbbbb");
+        assert_eq!(out, format!("aaaa{nl}bbbb", nl = ansi::platform_newline()));
     }
 
     #[test]
@@ -403,9 +402,9 @@ mod tests {
         let segments = fixed_normal_segments(&dir_string, 120, true, &env);
         let out = combine(segments, 120);
 
-        // Two lines separated by CRLF; the list starts with a newline so the
-        // first split piece is empty.
-        let parts: Vec<&str> = out.split("\r\n").collect();
+        // Two lines separated by the platform newline; the list starts with a
+        // newline so the first split piece is empty.
+        let parts: Vec<&str> = out.split(ansi::platform_newline()).collect();
         assert_eq!(parts.len(), 3);
         assert_eq!(parts[0], "");
         assert!(parts[1].starts_with(ansi::AQUA));
@@ -418,15 +417,7 @@ mod tests {
     }
 
     #[test]
-    fn version_string_shape() {
-        use super::ansi::utf16_len;
-        assert_eq!(utf16_len("abc"), 3);
-
-        // Version is "0.7.0" plus a 40-char sha, or the bare version.
-        let version = version_string();
-        assert!(version.starts_with("0.7.0"));
-        if let Some(sha) = version.strip_prefix("0.7.0+") {
-            assert_eq!(sha.len(), 40);
-        }
+    fn version_string_is_plain_semver() {
+        assert_eq!(version_string(), "0.7.0");
     }
 }

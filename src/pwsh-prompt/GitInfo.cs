@@ -5,7 +5,6 @@
 
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Primitives;
-using Spectre.Console;
 
 namespace Prompt;
 
@@ -43,7 +42,10 @@ internal static partial class GitInfo
             // Symbolic Reference
             if (head.StartsWith("ref:", StringComparison.Ordinal))
             {
-                branch = new StringSegment(head, 4, head.Length - 4);
+                // Skip the space after "ref:" so the branch equals the config
+                // "merge" value; keeping the space made the config match below
+                // never succeed.
+                branch = head[4..].TrimStart();
             }
         }
 
@@ -95,7 +97,7 @@ internal static partial class GitInfo
 
         if (Settings.Debug)
         {
-            AnsiConsole.WriteLine();
+            DebugOut.WriteLine();
         }
 
         while (true)
@@ -106,7 +108,7 @@ internal static partial class GitInfo
             {
                 if (Settings.Debug)
                 {
-                    AnsiConsole.MarkupLineInterpolated($"[yellow]Git: found in {gitPath}[/]");
+                    DebugOut.YellowLine($"Git: found in {gitPath}");
                 }
 
                 gitDirectory = gitPath;
@@ -127,7 +129,7 @@ internal static partial class GitInfo
                     {
                         if (Settings.Debug)
                         {
-                            AnsiConsole.MarkupLineInterpolated($"[yellow]Git: found worktree in {worktreeGitDir}[/]");
+                            DebugOut.YellowLine($"Git: found worktree in {worktreeGitDir}");
                         }
 
                         gitDirectory = worktreeGitDir;
@@ -138,7 +140,7 @@ internal static partial class GitInfo
 
             if (Settings.Debug)
             {
-                AnsiConsole.MarkupLineInterpolated($"[yellow]Git: not found in {gitPath}[/]");
+                DebugOut.YellowLine($"Git: not found in {gitPath}");
             }
 
             path = Path.GetDirectoryName(path);
@@ -158,7 +160,10 @@ internal static partial class GitInfo
             return Array.Empty<ConfigItem>();
         }
 
-        return GetConfigItemsIterator(configFile);
+        // Materialize the items: the lazy iterator yields a section before its
+        // "merge" line is parsed, so the branch comparison below would always
+        // see a null Merge (the Rust port parses the file eagerly).
+        return GetConfigItemsIterator(configFile).ToList();
     }
 
     private static IEnumerable<ConfigItem> GetConfigItemsIterator(string configFile)

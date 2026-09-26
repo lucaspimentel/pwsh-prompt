@@ -2,16 +2,11 @@
 // shown when it reaches the threshold.
 //
 // Format branches (invariant culture):
-//   >= 60s   -> "Nm Ss"; minutes use the C# "N" format when >= 1000, which
-//               is thousands grouping plus two fixed decimals ("1,024.00m 0s")
+//   >= 60s   -> "Nm Ss" ("1024m 0s")
 //   >= 1s    -> "0.#" seconds, one decimal with trailing zeros and the
 //               decimal point trimmed, rounded half away from zero ("4.5s",
 //               "60s")
 //   < 1s     -> "{ms}ms" ("30ms")
-//
-// Width quirk: UnformattedLength is the UTF-16 length minus 1, because the
-// clock glyph U+F0955 spans one surrogate pair (2 units) but renders in a
-// single terminal column.
 
 const PREFIX: &str = " \u{F0955} "; // clock glyph
 
@@ -42,11 +37,7 @@ fn format_duration(last_command_duration_ms: i32) -> String {
         let minutes = last_command_duration_ms / 60_000;
         let seconds = (last_command_duration_ms % 60_000) / 1_000;
 
-        let minutes_text = if minutes >= 1000 {
-            format_n(minutes)
-        } else {
-            minutes.to_string()
-        };
+        let minutes_text = minutes.to_string();
         format!("{PREFIX}{minutes_text}m {seconds}s")
     } else if last_command_duration_ms >= 1_000 {
         // 59.9s
@@ -55,27 +46,6 @@ fn format_duration(last_command_duration_ms: i32) -> String {
     } else {
         // 999ms
         format!("{PREFIX}{last_command_duration_ms}ms")
-    }
-}
-
-/// C# "N" format for integers with the default two decimal digits:
-/// 12345 -> "12,345.00".
-fn format_n(value: i32) -> String {
-    let negative = value < 0;
-    let digits = value.unsigned_abs().to_string();
-    let mut grouped = String::new();
-    let count = digits.len();
-    for (index, digit) in digits.chars().enumerate() {
-        grouped.push(digit);
-        let remaining = count - index - 1;
-        if remaining > 0 && remaining.is_multiple_of(3) {
-            grouped.push(',');
-        }
-    }
-    if negative {
-        format!("-{grouped}.00")
-    } else {
-        format!("{grouped}.00")
     }
 }
 
@@ -103,8 +73,8 @@ impl super::Segment for LastCommandDurationSegment {
         if self.unformatted_string.is_empty() {
             0
         } else {
-            // Length -1: the clock glyph is 2 UTF-16 units but 1 column.
-            crate::ansi::utf16_len(&self.unformatted_string) - 1
+            // Code-point length: the clock glyph is one char in one column.
+            crate::ansi::char_len(&self.unformatted_string)
         }
     }
 
@@ -170,27 +140,20 @@ mod tests {
         assert_eq!(rendered(1440000), "\x1b[38;5;11m \u{F0955} 24m 0s\x1b[0m");
         assert_eq!(
             rendered(61440000),
-            "\x1b[38;5;11m \u{F0955} 1,024.00m 0s\x1b[0m"
+            "\x1b[38;5;11m \u{F0955} 1024m 0s\x1b[0m"
         );
         assert_eq!(
             rendered(123456789),
-            "\x1b[38;5;11m \u{F0955} 2,057.00m 36s\x1b[0m"
+            "\x1b[38;5;11m \u{F0955} 2057m 36s\x1b[0m"
         );
     }
 
     #[test]
-    fn length_subtracts_glyph_column() {
-        // " \u{F0955} 1,024.00m 0s" is 16 UTF-16 units; renders in 15 columns.
+    fn length_counts_glyph_as_one_column() {
+        // " \u{F0955} 1024m 0s" is 11 code points, each rendering in one
+        // column.
         let segment = LastCommandDurationSegment::new(61440000, 30);
-        assert_eq!(segment.unformatted_length(), 15);
-    }
-
-    #[test]
-    fn format_n_groups_thousands() {
-        assert_eq!(format_n(1000), "1,000.00");
-        assert_eq!(format_n(999), "999.00");
-        assert_eq!(format_n(1234567), "1,234,567.00");
-        assert_eq!(format_n(-1234), "-1,234.00");
+        assert_eq!(segment.unformatted_length(), 11);
     }
 
     #[test]

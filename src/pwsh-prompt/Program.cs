@@ -52,11 +52,9 @@ internal static class Program
 
                 if (Settings.Debug)
                 {
-                    //AnsiConsole.Markup("[yellow]");
-                    AnsiConsole.WriteLine(@$"Literal arguments: ""{string.Join(" ", args)}""");
-                    AnsiConsole.WriteLine($"Parsed arguments: {state}");
-                    AnsiConsole.WriteLine($"Current directory: {Environment.CurrentDirectory}");
-                    //AnsiConsole.Markup("[/]");
+                    DebugOut.PlainLine(@$"Literal arguments: ""{string.Join(" ", args)}""");
+                    DebugOut.PlainLine($"Parsed arguments: {state}");
+                    DebugOut.PlainLine($"Current directory: {Environment.CurrentDirectory}");
                 }
 
                 // Console.WriteLine($"{pathSegment}{gitSegment}{fillerSegment}{durationSegment}{dateTimeSegment}");
@@ -188,7 +186,10 @@ internal static class Program
             }
 
             case null or []:
+            case [_, ..]:
             {
+                // Empty input and unknown verbs both print usage; the switch
+                // previously fell through silently on unknown verbs.
                 AnsiConsole.WriteLine("Usage: Prompt init");
                 AnsiConsole.WriteLine("       Prompt prompt [arguments]");
                 AnsiConsole.WriteLine("       Prompt --version");
@@ -201,24 +202,25 @@ internal static class Program
     {
         if (Settings.Debug)
         {
-            AnsiConsole.WriteLine();
+            DebugOut.WriteLine();
 
             foreach (var segment in segments)
             {
                 var typeName = segment.GetType().Name;
-                AnsiConsole.MarkupInterpolated($"[yellow]{typeName} ({segment.UnformattedLength})[/]");
+                DebugOut.WriteYellow($"{typeName} ({segment.UnformattedLength})");
 
                 if (SegmentTimer.Timings is { } timings && timings.TryGetValue(typeName, out var ms))
                 {
-                    AnsiConsole.MarkupInterpolated($" [grey][[{ms:F2}ms]][/]");
+                    DebugOut.WritePlain(" ");
+                    DebugOut.WriteGrey($"[{ms:F2}ms]");
                 }
 
                 if (segment is not NewLineSegment)
                 {
-                    AnsiConsole.Write(@$": ""{segment}""");
+                    DebugOut.WritePlain($": \"{segment}\"");
                 }
 
-                AnsiConsole.WriteLine();
+                DebugOut.WriteLine();
             }
         }
 

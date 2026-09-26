@@ -3,6 +3,9 @@ namespace Prompt;
 internal static class Init
 {
     public static string GetPowerShell(string processName) =>
+    // Normalize to LF regardless of the source file's line endings so the
+    // emitted script is byte-identical on every checkout; PowerShell does
+    // not care about the line ending.
 $$"""
 
   # Create a new dynamic module so we don't pollute the global namespace with our functions and variables
@@ -354,5 +357,5 @@ $$"""
       }
   }
 
-  """;
+  """.Replace("\r\n", "\n");
 }

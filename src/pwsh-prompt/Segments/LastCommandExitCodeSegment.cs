@@ -37,7 +37,10 @@ internal readonly struct LastCommandExitCodeSegment : ISegment
 
     public void Append(ref ValueStringBuilder sb)
     {
-        if (_lastCommandExitCode is 0)
+        // Render only when there is something to show; the constructor clears
+        // the text when the state is success, which must also suppress the
+        // (previously empty) red markup range.
+        if (_unformattedString.Length == 0)
         {
             return;
         }

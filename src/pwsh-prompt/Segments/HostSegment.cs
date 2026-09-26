@@ -12,7 +12,10 @@ internal readonly struct HostSegment : ISegment
     {
     }
 
-    public int UnformattedLength  => _hostname.Length + Prefix.Length;
+    // Code-point length of the hostname, plus the trailing space that Append
+    // emits inside the colored range (previously not counted, which
+    // under-reserved one column of layout width).
+    public int UnformattedLength => SegmentUtils.LengthInCodePoints(_hostname.AsSpan()) + Prefix.Length + 1;
 
     public void Append(ref ValueStringBuilder sb)
     {

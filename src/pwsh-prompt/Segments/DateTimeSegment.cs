@@ -11,7 +11,10 @@ internal readonly struct DateTimeSegment : ISegment
     {
     }
 
-    public int UnformattedLength => _now.Hour % 12 < 10 ? Format.Length : Format.Length + 1;
+    // Hours 10, 11 and 12 render two digits (h: without a leading zero, and
+    // 0 renders as 12 on the 12-hour clock), so the rendered length is one
+    // more than the template.
+    public int UnformattedLength => _now.Hour % 12 is 0 or >= 10 ? Format.Length + 1 : Format.Length;
 
     public void Append(ref ValueStringBuilder sb)
     {

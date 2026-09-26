@@ -13,17 +13,17 @@ New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 # Clean environment of prompt vars
 Remove-Item Env:PROMPT_GIT_DIR_CACHED, Env:PROMPT_GIT_BRANCH_CACHED, Env:PROMPT_PR_NUMBER_CACHED, Env:PROMPT_PR_STATE_CACHED, Env:PROMPT_GIT_DIR, Env:PROMPT_GIT_BRANCH, Env:PROMPT_GIT_HEAD, Env:PROMPT_GIT_CACHE_DIR, Env:PROMPT_PR_NUMBER, Env:PROMPT_PR_STATE -ErrorAction SilentlyContinue
 
-$maskDatetime = { param($text) [regex]::Replace($text, '\d{4}-\d{2}-\d{2} \d{1,2}:\d{2} (AM|PM)', 'DATETIME') }
+$maskDatetime = { param($text) [regex]::Replace([regex]::Replace($text, '\d{4}-\d{2}-\d{2} \d{1,2}:\d{2} (AM|PM)', 'DATETIME'), '\[\d+\.\d+ms\]', '[-ms]') }
 
 function Compare-Scenario {
-    param([string]$Name, [string[]]$Args, [hashtable]$Env = @{})
-    $csArgs = @('prompt') + $Args
+    param([string]$Name, [string[]]$ScenarioArgs, [hashtable]$ScenarioEnv = @{})
+    $csArgs = @('prompt') + $ScenarioArgs
     foreach ($side in 'cs', 'rs') {
         $exe = if ($side -eq 'cs') { $cs } else { $rs }
         $saved = @{}
-        foreach ($k in $Env.Keys) {
+        foreach ($k in $ScenarioEnv.Keys) {
             $saved[$k] = [Environment]::GetEnvironmentVariable($k)
-            [Environment]::SetEnvironmentVariable($k, $Env[$k])
+            [Environment]::SetEnvironmentVariable($k, $ScenarioEnv[$k])
         }
         $file = Join-Path $outDir "$Name-$side.bin"
         & $exe @csArgs > $file
@@ -79,7 +79,7 @@ $csU = [IO.File]::ReadAllText((Join-Path $outDir 'usage-cs.bin'))
 $rsU = [IO.File]::ReadAllText((Join-Path $outDir 'usage-rs.bin'))
 Write-Output ("  {0}" -f ($(if ($csU -ceq $rsU) { 'PASS  usage' } else { "FAIL  usage cs=$csU rs=$rsU" })))
 
-Write-Output "== silent on unknown verb =="
+Write-Output "== unknown verb prints usage =="
 & $cs frobnicate > (Join-Path $outDir 'silent-cs.bin') 2>&1
 & $rs frobnicate > (Join-Path $outDir 'silent-rs.bin') 2>&1
 $csS = [IO.File]::ReadAllText((Join-Path $outDir 'silent-cs.bin'))
@@ -92,6 +92,10 @@ Compare-Scenario 'repo-root'     (@($base) + @("--current-directory=$repoDir"))
 Compare-Scenario 'repo-sub'      (@($base) + @("--current-directory=$subDir"))
 Compare-Scenario 'nonrepo'       (@($base) + @("--current-directory=$nonrepo"))
 Compare-Scenario 'home'          (@($base) + @("--current-directory=$home1"))
+Compare-Scenario 'home-truncated' (@('--terminal-width=60', '--last-command-state=true') + @("--current-directory=$home1"))
+Compare-Scenario 'debug'          (@($base) + @("--current-directory=$repoDir")) @{ DEBUG_PROMPT = '1' }
+Compare-Scenario 'debug-failed'   (@('--terminal-width=120', '--last-command-state=false', '--last-command-exit-code=130', '--last-command-duration=4500') + @("--current-directory=$repoDir")) @{ DEBUG_PROMPT = '1' }
+Compare-Scenario 'simple-debug'   (@('--simple', '--terminal-width=120') + @("--current-directory=$repoDir")) @{ DEBUG_PROMPT = '1' }
 Compare-Scenario 'narrow-long'   (@('--terminal-width=60', '--last-command-state=true') + @("--current-directory=$fakeLong"))
 Compare-Scenario 'failed-cmd'    (@('--terminal-width=120', '--last-command-state=false', '--last-command-exit-code=130', '--last-command-duration=4500') + @("--current-directory=$repoDir"))
 Compare-Scenario 'dur-29'        (@('--terminal-width=120', '--last-command-duration=29') + @("--current-directory=$nonrepo"))
@@ -104,6 +108,14 @@ Compare-Scenario 'exit-neg'      (@('--terminal-width=120', '--last-command-stat
 Compare-Scenario 'state-true-code-nonzero' (@('--terminal-width=120', '--last-command-state=true', '--last-command-exit-code=7') + @("--current-directory=$repoDir"))
 Compare-Scenario 'simple'        (@('--simple', '--terminal-width=120') + @("--current-directory=$repoDir"))
 Compare-Scenario 'simple-narrow' (@('--simple', '--terminal-width=40') + @("--current-directory=$subDir"))
+
+Write-Output "== git config branch match =="
+$matchRepo = Join-Path $outDir 'branch-match-repo'
+New-Item -ItemType Directory -Force -Path (Join-Path $matchRepo '.git') | Out-Null
+[IO.File]::WriteAllText((Join-Path $matchRepo '.git\HEAD'), "ref: refs/heads/feature`n")
+[IO.File]::WriteAllText((Join-Path $matchRepo '.git\config'), "[core]`n`tbody = false`n[branch `"dev`"]`n`tmerge = refs/heads/feature`n")
+Compare-Scenario 'branch-match' (@($base) + @("--current-directory=$matchRepo"))
+Remove-Item -Recurse -Force $matchRepo
 
 Write-Output "== env-cached PR renders =="
 Compare-Scenario 'pr-open'   (@($base) + @("--current-directory=$repoDir")) @{ PROMPT_GIT_DIR_CACHED = "$repoDir\.git"; PROMPT_GIT_BRANCH_CACHED = 'main'; PROMPT_PR_NUMBER_CACHED = '12'; PROMPT_PR_STATE_CACHED = 'open' }

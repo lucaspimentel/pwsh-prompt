@@ -4,7 +4,9 @@ namespace Prompt.Segments;
 
 internal readonly struct NewLineSegment : ISegment
 {
-    private const string Value = "\r\n";
+    // Platform-appropriate line break; the previous hardcoded "\r\n" was
+    // wrong on Unix.
+    private static readonly string Value = Environment.NewLine;
 
     public int UnformattedLength => 0;
 

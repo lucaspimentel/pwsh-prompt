@@ -6,19 +6,18 @@
   - Segment rendering order is hardcoded in `Program.cs` (normal mode vs simple mode)
   - Consider a config file format (JSON/TOML) to define segment list, order, and per-segment options (color, icon, visibility)
   - Need to balance customizability with startup performance (native AOT, minimal allocations)
-- [ ] Clean up C#-parity quirks in the Rust crate (decide: fix both implementations together and update parity.ps1, or accept divergence)
-  - Each item breaks `src/pwsh-prompt-rs/parity.ps1` byte comparisons, so the C# and Rust sides must change together or parity expectations updated
-  - Duration "N" format: `".00"` on minutes >= 1000 (`1,024.00m 0s`) in `src/pwsh-prompt-rs/src/segments/last_command_duration.rs`; artifact of the C# `N` format specifier
-  - DateTime length quirk: `+1` only at hours 10-11, not hours 0/12 (off-by-one in filler math) in `src/pwsh-prompt-rs/src/segments/date_time.rs`
-  - HostSegment uncounted trailing space (layout under-reserves 1 column) in `src/pwsh-prompt-rs/src/segments/host.rs`
-  - Empty red range (`ESC[38;5;9mESC[0m`) when state=true and exit code != 0 in `src/pwsh-prompt-rs/src/segments/last_command_exit_code.rs`
-  - `~;` after `~` when truncated (`;` is Windows `Path.PathSeparator`) in `src/pwsh-prompt-rs/src/segments/path.rs`
-  - Dead git-config branch matching: `head[4..]` keeps the leading space after `ref:`, so `branch == merge` never matches a real HEAD file in `src/pwsh-prompt-rs/src/git_info.rs`
-  - Silent no-op on unknown verb (C# switch has no default case) in `src/pwsh-prompt-rs/src/main.rs`
-  - Hardcoded `\r\n` in NewLineSegment even on Unix in `src/pwsh-prompt-rs/src/segments/new_line.rs`
-  - UTF-16 code-unit arithmetic for lengths and path truncation (only diverges for astral-plane chars); `src/pwsh-prompt-rs/src/segments/path.rs`, `src/pwsh-prompt-rs/src/ansi.rs`
-  - `--version` `+<sha>` suffix mimics the .NET informational version; `src/pwsh-prompt-rs/build.rs`
-  - Spectre-faithful debug word-wrap (~150 lines: word tokens, 2x width, per-line style re-emit) in `src/pwsh-prompt-rs/src/ansi.rs`; debug-only
-  - `init.ps1` CRLF/LF line endings mirror the C# raw-string behavior; PowerShell does not care; `src/pwsh-prompt-rs/init.rs`
-  - Dead `process_directory` early-return guard (kept only for commented-out mapping code in the C#) in `src/pwsh-prompt-rs/src/segments/path.rs`
+- [x] Clean up C#-parity quirks in the Rust crate (fixed in both implementations; byte parity kept and extended in parity.ps1)
+  - [x] Duration "N" format: minutes >= 1000 now render as a plain integer ("1024m 0s") in both implementations
+  - [x] DateTime length: +1 at hours 10, 11 and 12 (all two-digit renders) in both implementations
+  - [x] HostSegment trailing space is now counted by UnformattedLength in both
+  - [x] Empty red range suppressed when the exit-code text is empty, in both
+  - [x] Truncated home paths use the directory separator ("~\..."), not Path.PathSeparator, in both
+  - [x] Git config branch matching works: branch trimmed after "ref:" in both, and the C# config items are materialized so "merge" is set before the comparison
+  - [x] Unknown verb prints usage on both sides (was a silent no-op)
+  - [x] NewLineSegment uses the platform newline instead of a hardcoded CRLF
+  - [x] Lengths and truncation count code points in both (SegmentUtils.LengthInCodePoints / char_len); the surrogate-pair adjustment is gone
+  - [x] --version prints the plain version in both; the Rust build.rs sha suffix is deleted
+  - [x] Debug (DEBUG_PROMPT) output is raw ANSI without Spectre word-wrap on both sides; the wrap engine was deleted from ansi.rs
+  - [x] init output is normalized to LF in both implementations
+  - [x] Dead process_directory guard removed in both (with the C# commented-out mapping block)
   - Keep the PowerShell contract items regardless: arg names, `PROMPT_*`/`DEBUG_PROMPT` env names, init template bytes, binary name

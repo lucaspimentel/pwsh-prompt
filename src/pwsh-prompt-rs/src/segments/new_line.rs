@@ -1,5 +1,7 @@
-// Port of NewLineSegment: appends a literal CRLF (the C# implementation uses
-// a hardcoded "\r\n" on every platform), contributes no width.
+// Port of NewLineSegment: appends the platform newline (CRLF on Windows, LF
+// on Unix, matching the C# Environment.NewLine), contributes no width.
+
+use crate::ansi::platform_newline;
 
 pub struct NewLineSegment;
 
@@ -17,6 +19,6 @@ impl super::Segment for NewLineSegment {
     }
 
     fn append(&self, out: &mut String) {
-        out.push_str("\r\n");
+        out.push_str(platform_newline());
     }
 }

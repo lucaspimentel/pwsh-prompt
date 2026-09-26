@@ -1,12 +1,11 @@
 // Port of LastCommandExitCodeSegment: a red icon plus the decimal exit code,
 // shown when the exit code is nonzero and the command state is failure.
 //
-// Quirk reproduced: the constructor clears the text when lastCommandState is
-// true, but Append only checks the exit code, so a nonzero exit code with
-// state = true still emits the (empty) red markup range.
+// The constructor clears the text when lastCommandState is true; append
+// renders only when there is text, so a nonzero exit code with state = true
+// emits nothing (previously it emitted an empty red range).
 
 pub struct LastCommandExitCodeSegment {
-    last_command_exit_code: i32,
     unformatted_string: String,
 }
 
@@ -21,10 +20,7 @@ impl LastCommandExitCodeSegment {
         } else {
             format!("{}{}", Self::prefix(), last_command_exit_code)
         };
-        LastCommandExitCodeSegment {
-            last_command_exit_code,
-            unformatted_string,
-        }
+        LastCommandExitCodeSegment { unformatted_string }
     }
 }
 
@@ -37,12 +33,12 @@ impl super::Segment for LastCommandExitCodeSegment {
         if self.unformatted_string.is_empty() {
             0
         } else {
-            crate::ansi::utf16_len(&self.unformatted_string)
+            crate::ansi::char_len(&self.unformatted_string)
         }
     }
 
     fn append(&self, out: &mut String) {
-        if self.last_command_exit_code == 0 {
+        if self.unformatted_string.is_empty() {
             return;
         }
 
@@ -52,7 +48,7 @@ impl super::Segment for LastCommandExitCodeSegment {
     }
 
     fn display_text(&self) -> String {
-        if self.last_command_exit_code == 0 {
+        if self.unformatted_string.is_empty() {
             return String::new();
         }
         format!("[red]{}[/]", self.unformatted_string)
@@ -80,13 +76,13 @@ mod tests {
         assert_eq!(out, "\x1b[38;5;9m \u{E654} 130\x1b[0m");
         assert_eq!(segment.unformatted_length(), 6);
 
-        // State true with nonzero code: empty text but the red range is
-        // still emitted (matches the C# Append logic).
+        // State true with nonzero code: nothing rendered at all.
         let segment = LastCommandExitCodeSegment::new(5, true);
         let mut out = String::new();
         segment.append(&mut out);
-        assert_eq!(out, "\x1b[38;5;9m\x1b[0m");
+        assert_eq!(out, "");
         assert_eq!(segment.unformatted_length(), 0);
+        assert_eq!(segment.display_text(), "");
 
         // Negative exit code renders with a minus sign.
         let segment = LastCommandExitCodeSegment::new(-3, false);

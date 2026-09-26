@@ -64,10 +64,10 @@ impl super::Segment for GitSegment {
             let pr_prefix_length = self
                 .pr_number
                 .as_ref()
-                .map(|n| crate::ansi::utf16_len(self.pr_icon) + crate::ansi::utf16_len(n))
+                .map(|n| crate::ansi::char_len(self.pr_icon) + crate::ansi::char_len(n))
                 .unwrap_or(0);
-            crate::ansi::utf16_len(Self::BRANCH_PREFIX)
-                + crate::ansi::utf16_len(&self.branch_name)
+            crate::ansi::char_len(Self::BRANCH_PREFIX)
+                + crate::ansi::char_len(&self.branch_name)
                 + pr_prefix_length
         }
     }

@@ -1,7 +1,7 @@
 // Segment trait, the Rust equivalent of the C# ISegment interface: every
-// visual element reports its display width (in UTF-16 code units, matching
-// C# string.Length) and appends its rendered text (including ANSI escapes)
-// to an output string.
+// visual element reports its display width (in Unicode code points, matching
+// the C# SegmentUtils.LengthInCodePoints helper) and appends its rendered text
+// (including ANSI escapes) to an output string.
 
 pub mod date_time;
 pub mod git;
@@ -26,7 +26,7 @@ pub trait Segment {
         false
     }
 
-    /// Display width in UTF-16 code units (C# string.Length semantics).
+    /// Display width in Unicode code points.
     fn unformatted_length(&self) -> i32;
 
     /// Appends the rendered text (markup resolved to ANSI escapes) to out.

@@ -19,7 +19,7 @@ impl super::Segment for StringSegment {
     }
 
     fn unformatted_length(&self) -> i32 {
-        crate::ansi::utf16_len(&self.value)
+        crate::ansi::char_len(&self.value)
     }
 
     fn append(&self, out: &mut String) {

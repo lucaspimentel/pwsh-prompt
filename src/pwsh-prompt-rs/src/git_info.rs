@@ -44,7 +44,10 @@ pub fn get_branch_name(path: &str, env: &dyn EnvSource, sink: &DebugSink) -> Str
 
         // Symbolic Reference
         if let Some(rest) = head.strip_prefix("ref:") {
-            branch = rest.to_string();
+            // Skip the space after "ref:" so the branch equals the config
+            // "merge" value; keeping the space made the config match below
+            // never succeed.
+            branch = rest.trim_start().to_string();
         }
     }
 
@@ -304,13 +307,16 @@ mod tests {
             "topic"
         );
 
-        // Matching branch section resolves the section name. HEAD uses a
-        // "ref:<name>" form without a space so it equals the merge value,
-        // mirroring the C# StringSegment offset behavior.
+        // Matching branch section resolves the section name. Real HEAD files
+        // use the "ref: refs/heads/<name>" form, and the merge value holds the
+        // same ref, so the two now compare equal.
         let dir = TempDir::new("branch-section");
         let git = dir.path().join(".git");
-        write(&git.join("HEAD"), "ref:develop\n");
-        write(&git.join("config"), "[branch \"dev\"]\n\tmerge = develop\n");
+        write(&git.join("HEAD"), "ref: refs/heads/develop\n");
+        write(
+            &git.join("config"),
+            "[branch \"dev\"]\n\tmerge = refs/heads/develop\n",
+        );
         assert_eq!(
             get_branch_name(dir.path().to_str().unwrap(), &empty, &DebugSink::disabled()),
             "dev"
