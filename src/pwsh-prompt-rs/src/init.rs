@@ -43,16 +43,12 @@ mod tests {
     #[test]
     fn script_starts_and_ends_like_the_csharp_output() {
         // The raw string includes a leading empty line and ends with the
-        // module's closing brace, followed by an empty line.
+        // module's closing brace followed by a platform newline (CRLF on
+        // Windows checkouts, LF on Unix).
         assert!(
             TEMPLATE.starts_with("\r\n# Create a new dynamic module")
                 || TEMPLATE.starts_with("\n# Create a new dynamic module")
         );
-        let trimmed_end = TEMPLATE.trim_end_matches(['\r', '\n']);
-        assert!(
-            trimmed_end.ends_with("}\n")
-                || trimmed_end.ends_with("}\r\n")
-                || trimmed_end.ends_with('}')
-        );
+        assert!(TEMPLATE.ends_with("}\r\n") || TEMPLATE.ends_with("}\n"));
     }
 }
