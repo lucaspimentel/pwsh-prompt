@@ -6,22 +6,26 @@
   - Segment rendering order is hardcoded in `Program.cs` (normal mode vs simple mode)
   - Consider a config file format (JSON/TOML) to define segment list, order, and per-segment options (color, icon, visibility)
   - Need to balance customizability with startup performance (native AOT, minimal allocations)
-- [x] Add Windows Terminal shell integration escape sequences in the PowerShell wrapper (`Init.cs`-generated script)
-  - OSC 9;9 — emit CWD so new tabs/panes open in the same directory
-  - OSC 133;A — mark prompt start (enables scrollbar marks, jump-between-commands, select-command-output)
-  - OSC 133;B — mark command input start (end of prompt)
-  - OSC 133;D — mark previous command finished with exit code (must fire before C# binary invocation)
-  - These are protocol-level markers, not visual — they belong in the shell wrapper, not the C# rendering
-  - Ref: [Shell Integration](https://learn.microsoft.com/en-us/windows/terminal/tutorials/shell-integration), [New Tab Same Directory](https://learn.microsoft.com/en-us/windows/terminal/tutorials/new-tab-same-directory)
-- [x] Background-fetch `gh pr view` so branch changes don't block the prompt
-  - Currently `Init.cs:142` calls `gh pr view` synchronously inside the `Prompt` function on cache invalidation; measured cost is 350 ms (no PR) to 1.3 s (new repo) per branch change
-  - Fire the lookup as a `Start-Job` (or `Start-ThreadJob`) and return immediately; the prompt right after a branch change shows no PR
-  - On the next `Prompt` invocation, poll the job state and read the result into `$env:PROMPT_PR_NUMBER` / `$env:PROMPT_PR_STATE` if completed
-  - Pattern reference: Starship handles slow git lookups this way
-  - Need to handle: job lifecycle cleanup, cancelling in-flight jobs when the user changes branches again before the previous one returned, and ensuring the cache key (`PROMPT_GIT_HEAD`) matches the branch the job was launched for
-- [x] Cache `gh pr` results per-branch instead of single-slot
-  - Current cache (`Init.cs:131-134`) holds one branch's PR info; bouncing between `main` and `feature-x` re-runs `gh pr view` each direction (~350 ms - 1.3 s per switch)
-  - Replace the flat `$env:PROMPT_PR_NUMBER` / `$env:PROMPT_PR_STATE` env vars with a small in-memory hashtable keyed by branch name, populated on first lookup
-  - Keep an env var copy for the current branch so the C# binary still reads via `PROMPT_PR_NUMBER_CACHED` / `PROMPT_PR_STATE_CACHED` unchanged
-  - Memory is per-PowerShell-session (the dynamic module in `Init.cs` already holds session state via `$script:lastHistoryId`); no persistence needed
-  - Optional refinement: invalidate per-branch entries after some TTL so PR state changes (open → merged) eventually surface
+- [ ] Clean up C#-parity quirks in the Rust crate (decide: fix both implementations together and update parity.ps1, or accept divergence)
+  - Each item breaks `src/pwsh-prompt-rs/parity.ps1` byte comparisons, so the C# and Rust sides must change together or parity expectations updated
+  - Duration "N" format: `".00"` on minutes >= 1000 (`1,024.00m 0s`) in `src/pwsh-prompt-rs/src/segments/last_command_duration.rs`; artifact of the C# `N` format specifier
+  - DateTime length quirk: `+1` only at hours 10-11, not hours 0/12 (off-by-one in filler math) in `src/pwsh-prompt-rs/src/segments/date_time.rs`
+  - HostSegment uncounted trailing space (layout under-reserves 1 column) in `src/pwsh-prompt-rs/src/segments/host.rs`
+  - Empty red range (`ESC[38;5;9mESC[0m`) when state=true and exit code != 0 in `src/pwsh-prompt-rs/src/segments/last_command_exit_code.rs`
+  - `~;` after `~` when truncated (`;` is Windows `Path.PathSeparator`) in `src/pwsh-prompt-rs/src/segments/path.rs`
+  - Dead git-config branch matching: `head[4..]` keeps the leading space after `ref:`, so `branch == merge` never matches a real HEAD file in `src/pwsh-prompt-rs/src/git_info.rs`
+  - Silent no-op on unknown verb (C# switch has no default case) in `src/pwsh-prompt-rs/src/main.rs`
+  - Hardcoded `\r\n` in NewLineSegment even on Unix in `src/pwsh-prompt-rs/src/segments/new_line.rs`
+  - UTF-16 code-unit arithmetic for lengths and path truncation (only diverges for astral-plane chars); `src/pwsh-prompt-rs/src/segments/path.rs`, `src/pwsh-prompt-rs/src/ansi.rs`
+  - `--version` `+<sha>` suffix mimics the .NET informational version; `src/pwsh-prompt-rs/build.rs`
+  - Spectre-faithful debug word-wrap (~150 lines: word tokens, 2x width, per-line style re-emit) in `src/pwsh-prompt-rs/src/ansi.rs`; debug-only
+  - `init.ps1` CRLF/LF line endings mirror the C# raw-string behavior; PowerShell does not care; `src/pwsh-prompt-rs/init.rs`
+  - Dead `process_directory` early-return guard (kept only for commented-out mapping code in the C#) in `src/pwsh-prompt-rs/src/segments/path.rs`
+  - Keep the PowerShell contract items regardless: arg names, `PROMPT_*`/`DEBUG_PROMPT` env names, init template bytes, binary name
+- [ ] Apply Rust-convention cleanups to `src/pwsh-prompt-rs` (behavior-preserving)
+  - Remove dead `defaults()` test helper and tuple destructuring in `src/pwsh-prompt-rs/src/args.rs` test module
+  - Separate I/O from computation: `GitSegment::new` / `PathSegment::new` / `try_find_git_folder` print debug lines directly to stdout; return data and let `main` write (`src/pwsh-prompt-rs/src/segments/git.rs`, `src/segments/path.rs`, `src/git_info.rs`, `src/ansi.rs`)
+  - Replace the `settings::set_debug_width` OnceLock global with a width parameter threaded through the debug writers (`src/pwsh-prompt-rs/src/settings.rs`, `src/ansi.rs`)
+  - Change `DateTimeSegment::from_parts` from returning a `(String, u32)` tuple to a small struct or pure `render_datetime` function (`src/pwsh-prompt-rs/src/segments/date_time.rs`)
+  - Replace env mutation + unsafe in unit tests (`test_support.rs` ENV_LOCK pattern) with injected env access or integration tests that spawn the binary
+  - Tighten the weak init template test assertion (`ends_with("}\n") || ... || ends_with('}')` in `src/pwsh-prompt-rs/src/init.rs`)
