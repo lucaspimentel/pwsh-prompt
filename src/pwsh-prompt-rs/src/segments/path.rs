@@ -6,6 +6,7 @@
 // StringSegment/String.Length semantics exactly.
 
 use crate::ansi::{self, DebugSink};
+use crate::env::EnvSource;
 use crate::git_info;
 use crate::path_utils;
 
@@ -25,6 +26,7 @@ impl PathSegment {
         is_file_system: bool,
         max_path_length: i32,
         simple_mode: bool,
+        env: &dyn EnvSource,
         sink: &DebugSink,
     ) -> Self {
         let mut segment = PathSegment {
@@ -47,7 +49,7 @@ impl PathSegment {
             return segment;
         };
 
-        if let Some(git_directory) = git_info::try_find_git_folder(current_directory, sink) {
+        if let Some(git_directory) = git_info::try_find_git_folder(current_directory, env, sink) {
             segment.is_git_repo = true;
 
             // In simple mode, keep the full path instead of shortening to
@@ -84,7 +86,7 @@ impl PathSegment {
                 }
             }
         } else {
-            let user_profile_directory = user_profile_directory();
+            let user_profile_directory = user_profile_directory(env);
 
             sink.yellow_line(&format!("userProfileDirectory: {user_profile_directory}"));
 
@@ -196,8 +198,9 @@ fn path_separator() -> char {
 /// Environment.GetFolderPath(SpecialFolder.UserProfile) equivalent. The
 /// USERPROFILE environment variable is what Windows resolves for the user
 /// profile; on Unix, $HOME (falling back to getpwuid via HOME being unset).
-fn user_profile_directory() -> String {
-    std::env::var(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).unwrap_or_default()
+fn user_profile_directory(env: &dyn EnvSource) -> String {
+    let home_var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    env.var(home_var).unwrap_or_default()
 }
 
 /// PathSegment.TryShortenPath equivalent. When the path exceeds
@@ -258,6 +261,7 @@ fn substring_after_units(path: &str, prefix: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::env::FakeEnv;
     use crate::segments::Segment;
 
     const MAIN_SEPARATOR: char = std::path::MAIN_SEPARATOR;
@@ -267,12 +271,14 @@ mod tests {
         current_directory: &str,
         max_path_length: i32,
         simple_mode: bool,
+        env: &dyn EnvSource,
     ) -> (PathSegment, String) {
         let segment = PathSegment::new(
             current_directory,
             true,
             max_path_length,
             simple_mode,
+            env,
             &DebugSink::disabled(),
         );
         let mut out = String::new();
@@ -289,28 +295,21 @@ mod tests {
             .to_string()
     }
 
-    // Env vars are process-global, so all scenarios run in one test.
     #[test]
     fn path_segment_scenarios() {
-        let _lock = crate::test_support::ENV_LOCK
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let _guard = crate::test_support::PromptEnvGuard::clear();
-
         // Redirect the user profile to a fake home so the temp dir used
         // below sits outside it.
         let fake_home = std::env::temp_dir().join("pwsh-prompt-tests-path/fake-home");
         let _ = std::fs::remove_dir_all(&fake_home);
         std::fs::create_dir_all(&fake_home).unwrap();
         let home_var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
-        let saved_home = std::env::var(home_var).ok();
-        crate::test_support::set_var(home_var, fake_home.to_str().unwrap());
+        let fake_home_env = FakeEnv::empty().with(home_var, fake_home.to_str().unwrap());
 
         // Outside any repo: default prefix, verbatim path.
         let dir = std::env::temp_dir().join("pwsh-prompt-tests-path/nonrepo");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let (segment, out) = build(dir.to_str().unwrap(), 500, false);
+        let (segment, out) = build(dir.to_str().unwrap(), 500, false, &fake_home_env);
         assert!(!segment.is_git_repo);
         assert_eq!(
             strip_ansi(&out),
@@ -327,7 +326,12 @@ mod tests {
         std::fs::create_dir_all(repo.join(".git")).unwrap();
         std::fs::write(repo.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
         std::fs::create_dir_all(repo.join("src/deep")).unwrap();
-        let (segment, out) = build(repo.join("src/deep").to_str().unwrap(), 500, false);
+        let (segment, out) = build(
+            repo.join("src/deep").to_str().unwrap(),
+            500,
+            false,
+            &fake_home_env,
+        );
         assert!(segment.is_git_repo);
         assert_eq!(
             strip_ansi(&out),
@@ -339,7 +343,12 @@ mod tests {
         );
 
         // Simple mode keeps the full path (with the git prefix).
-        let (segment, out) = build(repo.join("src/deep").to_str().unwrap(), 500, true);
+        let (segment, out) = build(
+            repo.join("src/deep").to_str().unwrap(),
+            500,
+            true,
+            &fake_home_env,
+        );
         assert!(segment.is_git_repo);
         assert_eq!(
             strip_ansi(&out),
@@ -350,7 +359,7 @@ mod tests {
         let home = fake_home.to_string_lossy().into_owned();
         let home_sub = format!("{home}{MAIN_SEPARATOR}.cache");
         let _ = std::fs::create_dir_all(&home_sub);
-        let (segment, out) = build(&home_sub, 500, false);
+        let (segment, out) = build(&home_sub, 500, false, &fake_home_env);
         assert!(segment.is_in_user_home);
         assert!(!segment.is_git_repo);
         assert_eq!(
@@ -363,17 +372,13 @@ mod tests {
         );
 
         // Exactly at the home root: just "~".
-        let (segment, out) = build(&home, 500, false);
+        let (segment, out) = build(&home, 500, false, &fake_home_env);
         assert!(segment.is_in_user_home);
         assert_eq!(strip_ansi(&out), " \u{F07C}  ~");
         assert_eq!(segment.unformatted_length(), 5);
 
         let _ = std::fs::remove_dir_all(std::env::temp_dir().join("pwsh-prompt-tests-path"));
         let _ = std::fs::remove_dir_all(&home_sub);
-
-        if let Some(home) = saved_home {
-            crate::test_support::set_var(home_var, &home);
-        }
     }
 
     // Truncation operates purely on strings; test the helper directly.

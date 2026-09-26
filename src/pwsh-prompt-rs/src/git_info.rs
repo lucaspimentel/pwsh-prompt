@@ -3,31 +3,32 @@
 // from HEAD plus the git config branch section.
 
 use crate::ansi::DebugSink;
+use crate::env::EnvSource;
 use crate::path_utils;
 
 const GIT_DIR_CACHE_ENV: &str = "PROMPT_GIT_DIR_CACHED";
 const GIT_BRANCH_CACHE_ENV: &str = "PROMPT_GIT_BRANCH_CACHED";
 
-fn env_var(name: &str) -> String {
-    std::env::var(name).unwrap_or_default()
+fn env_var(env: &dyn EnvSource, name: &str) -> String {
+    env.var(name).unwrap_or_default()
 }
 
 /// GitInfo.GetBranchName equivalent. Returns an empty string when the path is
 /// not in a git repository or the HEAD is detached.
-pub fn get_branch_name(path: &str, sink: &DebugSink) -> String {
+pub fn get_branch_name(path: &str, env: &dyn EnvSource, sink: &DebugSink) -> String {
     // Check environment variable cache first. PowerShell sets
     // PROMPT_GIT_DIR_CACHED and PROMPT_GIT_BRANCH_CACHED together; if the git
     // dir cache is empty, the branch cache (if any) is stale and must not be
     // used.
-    let cached_git_dir = env_var(GIT_DIR_CACHE_ENV);
+    let cached_git_dir = env_var(env, GIT_DIR_CACHE_ENV);
     if !cached_git_dir.is_empty() {
-        let cached_branch = env_var(GIT_BRANCH_CACHE_ENV);
+        let cached_branch = env_var(env, GIT_BRANCH_CACHE_ENV);
         if !cached_branch.is_empty() {
             return cached_branch;
         }
     }
 
-    let Some(git_folder) = try_find_git_folder(path, sink) else {
+    let Some(git_folder) = try_find_git_folder(path, env, sink) else {
         return String::new();
     };
 
@@ -82,9 +83,9 @@ pub fn get_branch_name(path: &str, sink: &DebugSink) -> String {
 /// GitInfo.TryFindGitFolder equivalent. Checks the environment cache first,
 /// then walks up the directory tree looking for a .git directory or a .git
 /// file pointing at a worktree directory.
-pub fn try_find_git_folder(path: &str, sink: &DebugSink) -> Option<String> {
+pub fn try_find_git_folder(path: &str, env: &dyn EnvSource, sink: &DebugSink) -> Option<String> {
     // Check environment variable cache first
-    let cached_git_dir = env_var(GIT_DIR_CACHE_ENV);
+    let cached_git_dir = env_var(env, GIT_DIR_CACHE_ENV);
     if !cached_git_dir.is_empty() {
         return Some(cached_git_dir);
     }
@@ -191,6 +192,7 @@ fn parse_config_section(line: &str) -> Option<(String, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::env::FakeEnv;
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -220,39 +222,9 @@ mod tests {
         fs::write(path, content).unwrap();
     }
 
-    /// Saves and clears the cache env vars, restoring them on drop.
-    struct EnvGuard {
-        saved: Vec<(String, String)>,
-    }
-    impl EnvGuard {
-        fn new() -> Self {
-            let names = [GIT_DIR_CACHE_ENV, GIT_BRANCH_CACHE_ENV];
-            let saved: Vec<(String, String)> = names
-                .iter()
-                .filter_map(|n| std::env::var(n).ok().map(|v| (n.to_string(), v)))
-                .collect();
-            for n in names {
-                crate::test_support::remove_var(n);
-            }
-            EnvGuard { saved }
-        }
-    }
-    impl Drop for EnvGuard {
-        fn drop(&mut self) {
-            for (name, value) in &self.saved {
-                crate::test_support::set_var(name, value);
-            }
-        }
-    }
-
-    // All scenarios run in one test because they mutate process-wide
-    // environment variables, which are shared across parallel test threads.
     #[test]
     fn git_info_scenarios() {
-        let _lock = crate::test_support::ENV_LOCK
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let _guard = EnvGuard::new();
+        let empty = FakeEnv::empty();
 
         // Walk up finds .git and resolves the branch.
         let dir = TempDir::new("walk-up");
@@ -261,20 +233,22 @@ mod tests {
         write(&repo.join(".git/HEAD"), "ref: refs/heads/main\n");
         write(&repo.join(".git/config"), "[core]\n");
 
-        let found = try_find_git_folder(nested.to_str().unwrap(), &DebugSink::disabled()).unwrap();
+        let found =
+            try_find_git_folder(nested.to_str().unwrap(), &empty, &DebugSink::disabled()).unwrap();
         assert_eq!(PathBuf::from(&found), repo.join(".git"));
         assert_eq!(
-            get_branch_name(nested.to_str().unwrap(), &DebugSink::disabled()),
+            get_branch_name(nested.to_str().unwrap(), &empty, &DebugSink::disabled()),
             "main"
         );
 
         // No git anywhere.
         let dir = TempDir::new("no-git");
         assert!(
-            try_find_git_folder(dir.path().to_str().unwrap(), &DebugSink::disabled()).is_none()
+            try_find_git_folder(dir.path().to_str().unwrap(), &empty, &DebugSink::disabled())
+                .is_none()
         );
         assert_eq!(
-            get_branch_name(dir.path().to_str().unwrap(), &DebugSink::disabled()),
+            get_branch_name(dir.path().to_str().unwrap(), &empty, &DebugSink::disabled()),
             ""
         );
 
@@ -299,10 +273,11 @@ mod tests {
             ),
         );
 
-        let found = try_find_git_folder(wt.to_str().unwrap(), &DebugSink::disabled()).unwrap();
+        let found =
+            try_find_git_folder(wt.to_str().unwrap(), &empty, &DebugSink::disabled()).unwrap();
         assert!(found.contains("worktrees"));
         assert_eq!(
-            get_branch_name(wt.to_str().unwrap(), &DebugSink::disabled()),
+            get_branch_name(wt.to_str().unwrap(), &empty, &DebugSink::disabled()),
             "feature"
         );
 
@@ -315,7 +290,7 @@ mod tests {
         );
         write(&git.join("config"), "[core]\n");
         assert_eq!(
-            get_branch_name(dir.path().to_str().unwrap(), &DebugSink::disabled()),
+            get_branch_name(dir.path().to_str().unwrap(), &empty, &DebugSink::disabled()),
             ""
         );
 
@@ -325,7 +300,7 @@ mod tests {
         write(&git.join("HEAD"), "ref: refs/heads/topic\n");
         write(&git.join("config"), "[core]\n\tbare = false\n");
         assert_eq!(
-            get_branch_name(dir.path().to_str().unwrap(), &DebugSink::disabled()),
+            get_branch_name(dir.path().to_str().unwrap(), &empty, &DebugSink::disabled()),
             "topic"
         );
 
@@ -337,28 +312,30 @@ mod tests {
         write(&git.join("HEAD"), "ref:develop\n");
         write(&git.join("config"), "[branch \"dev\"]\n\tmerge = develop\n");
         assert_eq!(
-            get_branch_name(dir.path().to_str().unwrap(), &DebugSink::disabled()),
+            get_branch_name(dir.path().to_str().unwrap(), &empty, &DebugSink::disabled()),
             "dev"
         );
 
         // Env cache short-circuits both discovery and branch lookup.
-        crate::test_support::set_var(GIT_DIR_CACHE_ENV, r"D:\fake\.git");
-        crate::test_support::set_var(GIT_BRANCH_CACHE_ENV, "cached-branch");
+        let cached = FakeEnv::empty()
+            .with(GIT_DIR_CACHE_ENV, r"D:\fake\.git")
+            .with(GIT_BRANCH_CACHE_ENV, "cached-branch");
         assert_eq!(
-            get_branch_name(r"C:\nowhere\at\all", &DebugSink::disabled()),
+            get_branch_name(r"C:\nowhere\at\all", &cached, &DebugSink::disabled()),
             "cached-branch"
         );
         assert_eq!(
-            try_find_git_folder(r"C:\nowhere\at\all", &DebugSink::disabled()).as_deref(),
+            try_find_git_folder(r"C:\nowhere\at\all", &cached, &DebugSink::disabled()).as_deref(),
             Some(r"D:\fake\.git")
         );
 
         // Branch cache is ignored when the dir cache is empty.
-        crate::test_support::set_var(GIT_DIR_CACHE_ENV, "");
-        crate::test_support::set_var(GIT_BRANCH_CACHE_ENV, "stale");
+        let stale = FakeEnv::empty()
+            .with(GIT_DIR_CACHE_ENV, "")
+            .with(GIT_BRANCH_CACHE_ENV, "stale");
         let dir = TempDir::new("stale-cache");
         assert_eq!(
-            get_branch_name(dir.path().to_str().unwrap(), &DebugSink::disabled()),
+            get_branch_name(dir.path().to_str().unwrap(), &stale, &DebugSink::disabled()),
             ""
         );
     }

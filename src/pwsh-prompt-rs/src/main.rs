@@ -7,15 +7,15 @@
 
 mod ansi;
 mod args;
+mod env;
 mod git_info;
 mod init;
 mod path_utils;
 mod segments;
 mod settings;
-#[cfg(test)]
-mod test_support;
 
 use ansi::{DebugSink, DebugSpan};
+use env::RealEnv;
 use segments::{Segment, StringSegment};
 
 const VERSION_SHA: &str = env!("PROMPT_GIT_SHA");
@@ -58,6 +58,7 @@ fn run_prompt(args: &[String]) {
     // AnsiConsole's profile width is terminalWidth * 2; it governs the
     // wrapping of DEBUG output lines.
     let sink = ansi::DebugSink::new(settings::debug(), state.terminal_width.saturating_mul(2));
+    let env = RealEnv;
     let debug = sink.enabled();
 
     // Per-segment construction timings, shown when DEBUG_PROMPT=1. Matches
@@ -85,7 +86,7 @@ fn run_prompt(args: &[String]) {
         measure("HostSegment", start);
 
         let start = std::time::Instant::now();
-        let git_segment = segments::git::GitSegment::new(&state.current_directory, &sink);
+        let git_segment = segments::git::GitSegment::new(&state.current_directory, &env, &sink);
         measure("GitSegment", start);
 
         let max_path_length = state.terminal_width
@@ -99,6 +100,7 @@ fn run_prompt(args: &[String]) {
             state.current_directory_is_filesystem,
             max_path_length,
             true,
+            &env,
             &sink,
         );
         measure("PathSegment", start);
@@ -114,7 +116,7 @@ fn run_prompt(args: &[String]) {
         measure("HostSegment", start);
 
         let start = std::time::Instant::now();
-        let git_segment = segments::git::GitSegment::new(&state.current_directory, &sink);
+        let git_segment = segments::git::GitSegment::new(&state.current_directory, &env, &sink);
         measure("GitSegment", start);
 
         let start = std::time::Instant::now();
@@ -161,6 +163,7 @@ fn run_prompt(args: &[String]) {
             state.current_directory_is_filesystem,
             max_path_length,
             false,
+            &env,
             &sink,
         );
         measure("PathSegment", start);
@@ -270,6 +273,7 @@ fn combine_segments(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::env::EnvSource;
     use segments::date_time::DateTimeSegment;
     use segments::host::HostSegment;
     use segments::new_line::NewLineSegment;
@@ -295,10 +299,11 @@ mod tests {
         current_directory: &str,
         terminal_width: i32,
         is_file_system: bool,
+        env: &dyn EnvSource,
     ) -> Vec<Box<dyn Segment>> {
         let host_segment = HostSegment::new();
         let sink = DebugSink::disabled();
-        let git_segment = segments::git::GitSegment::new(current_directory, &sink);
+        let git_segment = segments::git::GitSegment::new(current_directory, env, &sink);
         let last_command_exit_code_segment = LastCommandExitCodeSegment::new(0, true);
         let last_command_duration_segment =
             LastCommandDurationSegment::new(0, settings::LAST_COMMAND_DURATION_THRESHOLD_MS);
@@ -320,6 +325,7 @@ mod tests {
             is_file_system,
             max_path_length,
             false,
+            env,
             &sink,
         );
 
@@ -386,11 +392,6 @@ mod tests {
 
     #[test]
     fn combine_normal_layout_shape() {
-        let _lock = test_support::ENV_LOCK
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let _guard = test_support::PromptEnvGuard::clear();
-
         // Non-repo directory outside the user's home so the path renders
         // verbatim.
         let dir = std::env::temp_dir().join("pwsh-prompt-tests-combine");
@@ -398,7 +399,8 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let dir_string = dir.to_string_lossy().into_owned();
 
-        let segments = fixed_normal_segments(&dir_string, 120, true);
+        let env = crate::env::FakeEnv::empty();
+        let segments = fixed_normal_segments(&dir_string, 120, true, &env);
         let out = combine(segments, 120);
 
         // Two lines separated by CRLF; the list starts with a newline so the
