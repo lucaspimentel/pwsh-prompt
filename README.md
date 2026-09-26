@@ -47,7 +47,7 @@ Clone the repository and run the installation script:
 ./install-local.ps1
 ```
 
-This will build the native binary and install it to `~/.local/bin/pwsh-prompt`.
+This will build the native binary (Rust toolchain required) and install it to `~/.local/bin/pwsh-prompt`.
 
 Options:
 - `-Force` — skip confirmation prompts and overwrite existing installation
@@ -85,6 +85,19 @@ pwsh-prompt --version
 
 ## Building Manually
 
+The Rust implementation in `src/pwsh-prompt-rs` is a byte-compatible port of
+the C# tool and is the build target for releases and `install-local.ps1`.
+
+```powershell
+# Rust build (release)
+cargo build --release --manifest-path src/pwsh-prompt-rs/Cargo.toml
+
+# Rust tests
+cargo test --manifest-path src/pwsh-prompt-rs/Cargo.toml
+```
+
+The original C# project is kept intact for side-by-side comparison:
+
 ```powershell
 # Quick build test
 dotnet build src/pwsh-prompt -c Release -f net10.0
@@ -104,13 +117,17 @@ dotnet build pwsh-prompt.slnx
 ```
 pwsh-prompt/
 ├── src/
-│   └── pwsh-prompt/          # Main C# project
-│       ├── Segments/         # Segment implementations (ISegment)
-│       ├── Program.cs        # Entry point and mode routing
-│       ├── Arguments.cs      # Command-line argument parsing
-│       ├── GitInfo.cs        # Git repository detection and caching
-│       ├── Init.cs           # PowerShell initialization script generator
-│       └── ...               # Other core files
+│   ├── pwsh-prompt/          # Main C# project (reference implementation)
+│   │   ├── Segments/         # Segment implementations (ISegment)
+│   │   ├── Program.cs        # Entry point and mode routing
+│   │   ├── Arguments.cs      # Command-line argument parsing
+│   │   ├── GitInfo.cs        # Git repository detection and caching
+│   │   ├── Init.cs           # PowerShell initialization script generator
+│   │   └── ...               # Other core files
+│   └── pwsh-prompt-rs/       # Rust port (byte-compatible, release target)
+│       ├── src/              # One module per C# file, plus path/ANSI helpers
+│       ├── init.ps1          # Init script template (extracted from the C#)
+│       └── parity.ps1        # Byte-parity harness against the C# binary
 ├── install-local.ps1         # Build from source and install
 ├── install-remote.ps1        # Download from GitHub releases and install
 └── pwsh-prompt.slnx          # Solution file

@@ -4,9 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a custom PowerShell prompt written in C# that displays contextual information about the current directory, git repository, last command status, and system information. It's compiled as a native AOT binary for fast startup times.
+This is a custom PowerShell prompt that displays contextual information about the current directory, git repository, last command status, and system information.
+
+There are two parallel implementations:
+
+- **`src/pwsh-prompt-rs`** (Rust): the release target. The install scripts and CI/release workflows build this crate. Byte-compatible with the PowerShell contract below.
+- **`src/pwsh-prompt`** (C# / Native AOT): the original reference implementation, kept intact for side-by-side comparison. Do not delete it.
+
+The two must stay byte-compatible: `init` output, rendered `prompt` output, CLI argument names, environment variable names (`PROMPT_GIT_*`, `PROMPT_PR_*`, `DEBUG_PROMPT`), and the binary name. `src/pwsh-prompt-rs/parity.ps1` compares the two binaries byte-for-byte against fixed inputs (run both `cargo build --release` and `dotnet build` first).
 
 ## Build and Installation
+
+### Rust (release target, `src/pwsh-prompt-rs`)
+
+- **Test**: `cargo test --manifest-path src/pwsh-prompt-rs/Cargo.toml`
+- **Build**: `cargo build --release --manifest-path src/pwsh-prompt-rs/Cargo.toml` (binary at `src/pwsh-prompt-rs/target/release/pwsh-prompt[.exe]`)
+- **Lint**: `cargo clippy --all-targets --manifest-path src/pwsh-prompt-rs/Cargo.toml -- -D warnings` and `cargo fmt --check` (both enforced in CI)
+- **Parity check**: `pwsh -File src/pwsh-prompt-rs/parity.ps1` (requires the C# binary built first)
+- Module layout mirrors the C# files: `main.rs` (Program.cs), `args.rs`, `git_info.rs`, `init.rs` (with the `init.ps1` template), `settings.rs`, `ansi.rs` (markup-to-ANSI mapping and Spectre-faithful debug wrapping), `segments/` (one file per segment).
+
+### C# (reference, `src/pwsh-prompt`)
 
 - **Restore dependencies**: `dotnet restore src/pwsh-prompt`
 - **Build**: `dotnet build src/pwsh-prompt`
