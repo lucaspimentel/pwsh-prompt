@@ -21,6 +21,7 @@ The two must stay byte-compatible: `init` output, rendered `prompt` output, CLI 
 - **Build**: `cargo build --release --manifest-path src/pwsh-prompt-rs/Cargo.toml` (binary at `src/pwsh-prompt-rs/target/release/pwsh-prompt[.exe]`)
 - **Lint**: `cargo clippy --all-targets --manifest-path src/pwsh-prompt-rs/Cargo.toml -- -D warnings` and `cargo fmt --check` (both enforced in CI)
 - **Parity check**: `pwsh -File src/pwsh-prompt-rs/parity.ps1` (requires the C# binary built first)
+- **Benchmark**: `pwsh -File src/pwsh-prompt-rs/bench.ps1` compares end-to-end process startup plus render against the C# binary (Rust-only with `-RustOnly`)
 - Module layout mirrors the C# files: `main.rs` (Program.cs), `args.rs`, `git_info.rs`, `init.rs` (with the `init.ps1` template), `settings.rs`, `ansi.rs` (markup-to-ANSI mapping and Spectre-faithful debug wrapping), `segments/` (one file per segment).
 
 ### C# (reference, `src/pwsh-prompt`)

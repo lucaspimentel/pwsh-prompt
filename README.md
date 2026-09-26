@@ -112,6 +112,20 @@ dotnet publish src/pwsh-prompt -c Release -r linux-x64 --output ./publish
 dotnet build pwsh-prompt.slnx
 ```
 
+## Benchmarks
+
+Compare end-to-end performance (process startup plus a full render) of the
+Rust and C# binaries across repo, non-repo, truncation, simple mode, and PR
+scenarios:
+
+```powershell
+pwsh -File src/pwsh-prompt-rs/bench.ps1            # 100 timed runs per scenario
+pwsh -File src/pwsh-prompt-rs/bench.ps1 -RustOnly  # skip the C# comparison
+```
+
+The script builds either binary if it is missing, cleans the inherited
+`PROMPT_*` environment, and reports median/min plus the rust-to-c# ratio.
+
 ## Project Structure
 
 ```
