@@ -7,3 +7,6 @@ artifacts/
 publish/
 *.user
 .claude/*.local.*
+
+# Rust crate
+/src/pwsh-prompt-rs/target/

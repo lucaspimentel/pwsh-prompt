@@ -1,0 +1,18 @@
+[package]
+name = "pwsh-prompt"
+version = "0.7.0"
+edition = "2024"
+description = "Fast PowerShell prompt renderer (Rust port of the C# Native AOT tool)"
+build = "build.rs"
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+hostname = "0.4"
+terminal_size = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

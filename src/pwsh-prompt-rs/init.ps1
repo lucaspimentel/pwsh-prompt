@@ -1,0 +1,349 @@
+
+# Create a new dynamic module so we don't pollute the global namespace with our functions and variables
+$null = New-Module lucas-prompt {
+
+    # Track history ID to detect first prompt and empty prompts (Ctrl+C, Enter with no command)
+    [long]$script:lastHistoryId = -1
+
+    # Per-branch PR info cache, keyed by branch name (or commit hash for detached HEAD).
+    # Eliminates repeat `gh pr view` invocations when bouncing between previously-seen branches.
+    # Values: @{ Number = '<n>'; State = '<draft|open|closed>' } — empty strings cached for no-PR results.
+    $script:prCache = @{}
+
+    # In-flight background `gh pr view` job (single-slot). Tagged with a CacheKey NoteProperty
+    # so we know which branch it was launched for. Result is harvested into $script:prCache
+    # at the top of Prompt. If the user switches to a different branch before the job lands,
+    # we cancel it and spawn a new one keyed to the new branch.
+    $script:prJob = $null
+
+    function Invoke-Native {
+        param($Executable, $Arguments)
+
+        if (Test-Path $PWD.ProviderPath)
+        {
+            $workingDirectory = $PWD.ProviderPath;
+        } else {
+            $workingDirectory = $UserProfile;
+        }
+
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo -ArgumentList $Executable -Property @{
+            StandardOutputEncoding = [System.Text.Encoding]::UTF8;
+            RedirectStandardOutput = $true;
+            RedirectStandardError = $true;
+            CreateNoWindow = $true;
+            UseShellExecute = $false;
+            WorkingDirectory = $workingDirectory;
+        };
+
+        # requires PowerShell 6+ (or 6.1+)
+        foreach ($arg in $Arguments) {
+            $startInfo.ArgumentList.Add($arg);
+        }
+
+        $process = [System.Diagnostics.Process]::Start($startInfo)
+
+        # Read the output and error streams asynchronously
+        # Avoids potential deadlocks when the child process fills one of the buffers
+        # https://docs.microsoft.com/en-us/dotnet/api/system.diagnostics.process.standardoutput?view=net-6.0#remarks
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        [System.Threading.Tasks.Task]::WaitAll(@($stdout, $stderr))
+
+        # stderr isn't displayed with this style of invocation
+        # Manually write it to console
+        if ($stderr.Result.Trim() -ne '') {
+            # Write-Error doesn't work here
+            $host.ui.WriteErrorLine($stderr.Result)
+        }
+
+        $stdout.Result;
+    }
+
+    # Harvest a completed (or failed) async PR-lookup job into $script:prCache. The result is
+    # cached under the job's original branch key, so an A→B→A toggle finds A's result
+    # whenever its job lands — even if we're currently on B.
+    function Receive-PendingPrJob {
+        if (-not $script:prJob) { return }
+        if ($script:prJob.State -notin 'Completed','Failed','Stopped') { return }
+        try {
+            if ($script:prJob.State -eq 'Completed') {
+                $result = Receive-Job -Job $script:prJob -ErrorAction SilentlyContinue
+                $key = $script:prJob.CacheKey
+                if ($key) {
+                    $num = ''
+                    $state = ''
+                    if ($result) {
+                        $parts = ([string]$result) -split '\|'
+                        $num   = $parts[0]
+                        $state = if ($parts[2] -eq 'true') { 'draft' } elseif ($parts[1].ToLower() -eq 'closed') { 'closed' } else { 'open' }
+                    }
+                    # Cache the result (including no-PR) so subsequent visits skip gh entirely.
+                    $script:prCache[$key] = @{ Number = $num; State = $state }
+                    # If we're still on the branch the job was launched for, seed the env vars so
+                    # the downstream cache-propagation path picks up the result on this prompt.
+                    $currentKey = if ($env:PROMPT_GIT_BRANCH) { $env:PROMPT_GIT_BRANCH } else { ([string]$env:PROMPT_GIT_HEAD).Trim() }
+                    if ($currentKey -eq $key) {
+                        $env:PROMPT_PR_NUMBER = $num
+                        $env:PROMPT_PR_STATE  = $state
+                    }
+                }
+            }
+            # Failed/Stopped: drop without caching so the next prompt retries.
+        } finally {
+            Remove-Job -Job $script:prJob -Force -ErrorAction SilentlyContinue
+            $script:prJob = $null
+        }
+    }
+
+    function global:Prompt {
+        $origDollarQuestion = $global:?
+        $origLastExitCode = $global:LASTEXITCODE
+
+        # Per-op + total prompt wall-clock, shown when DEBUG_PROMPT=1
+        $debugTimings = if ($env:DEBUG_PROMPT -eq '1') { [System.Collections.Specialized.OrderedDictionary]::new() } else { $null }
+        $debugStart = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
+
+        # Harvest any completed async `gh pr view` job into $script:prCache before deciding
+        # whether to launch a new lookup further down. Cheap no-op when nothing is in flight.
+        if ($script:prJob) {
+            $tsHarvest = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
+            Receive-PendingPrJob
+            if ($debugTimings) {
+                $debugTimings['gh-pr-harvest'] = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsHarvest).TotalMilliseconds
+            }
+        }
+
+        # Shell integration escape sequences (Windows Terminal, iTerm2, etc.)
+        # ESC ] <code> ; <data> ST
+        $e = [char]27
+        $st = "$e\"
+        $prompt = ''
+
+        # OSC 133;D — mark previous command as finished (with exit code)
+        # Skip on first prompt (no command has run yet)
+        $lastHistory = Get-History -Count 1
+        if ($script:lastHistoryId -ne -1) {
+            if ($lastHistory.Id -eq $script:lastHistoryId) {
+                # No new command was executed (e.g. Ctrl+C, empty Enter)
+                $prompt += "$e]133;D$st"
+            } else {
+                $exitCode = if ($origDollarQuestion) { 0 } else { if ($origLastExitCode) { $origLastExitCode } else { 1 } }
+                $prompt += "$e]133;D;$exitCode$st"
+            }
+        }
+
+        # OSC 133;A — mark prompt start
+        $prompt += "$e]133;A$st"
+
+        # OSC 9;9 — communicate current working directory (for new tab same directory)
+        $prompt += "$e]9;9;`"$($PWD.ProviderPath)`"$st"
+
+        # Discover git directory when working directory changes.
+        # Done in PowerShell because child process environment changes (set by the C# binary)
+        # do not propagate back to the parent PowerShell process.
+        #
+        # Default $previousGitDir so $gitDirChanged is false when the top guard is skipped
+        # (no directory change since last prompt).
+        $previousGitDir = $env:PROMPT_GIT_DIR
+        if ($env:PROMPT_GIT_CACHE_DIR -ne $PWD.Path) {
+            # Stash the prior git dir so we can detect cross-repo (or in/out of repo) moves
+            # *after* the walk below. Then clear current state defensively; the walk and the
+            # post-invoke block repopulate them if the new directory is in a repo.
+            $previousGitDir = $env:PROMPT_GIT_DIR
+            $env:PROMPT_GIT_DIR = ''
+            $env:PROMPT_GIT_HEAD = ''
+            $env:PROMPT_GIT_BRANCH = ''
+            $searchPath = $PWD.Path
+            while ($searchPath) {
+                $gitPath = [IO.Path]::Combine($searchPath, '.git')
+                if ([IO.Directory]::Exists($gitPath)) {
+                    $env:PROMPT_GIT_DIR = $gitPath
+                    break
+                }
+                if ([IO.File]::Exists($gitPath)) {
+                    # Git worktree: .git is a file containing "gitdir: <path>"
+                    $content = [IO.File]::ReadAllText($gitPath)
+                    if ($content -match 'gitdir:\s*(.+)') {
+                        $worktreeDir = $matches[1].Trim()
+                        if (-not [IO.Path]::IsPathRooted($worktreeDir)) {
+                            $worktreeDir = [IO.Path]::GetFullPath([IO.Path]::Combine($searchPath, $worktreeDir))
+                        }
+                        if ([IO.Directory]::Exists($worktreeDir)) {
+                            $env:PROMPT_GIT_DIR = $worktreeDir
+                        }
+                    }
+                    break
+                }
+                $parent = [IO.Path]::GetDirectoryName($searchPath)
+                if (!$parent -or $parent -eq $searchPath) { break }
+                $searchPath = $parent
+            }
+        }
+
+        # Cache validity is now keyed on the discovered git dir, not on $PWD.Path.
+        # cd'ing between sibling subdirectories of the same repo leaves $gitDirChanged false,
+        # so we reuse the branch + PR cache and skip the `gh pr view` subprocess.
+        $gitDirChanged = $previousGitDir -ne $env:PROMPT_GIT_DIR
+
+        # Read HEAD once: derive current branch / detached-HEAD commit and detect HEAD changes.
+        $currentHead = ''
+        $currentBranch = ''       # empty for detached HEAD
+        $currentCacheKey = ''     # branch name, or commit hash for detached HEAD
+        $headChanged = $false
+        $tsHead = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
+        if ($env:PROMPT_GIT_DIR) {
+            $headFile = [IO.Path]::Combine($env:PROMPT_GIT_DIR, 'HEAD')
+            if ([IO.File]::Exists($headFile)) {
+                $currentHead = [IO.File]::ReadAllText($headFile)
+                if ($currentHead -match 'ref: refs/heads/(.+)') {
+                    $currentBranch = $matches[1].Trim()
+                    $currentCacheKey = $currentBranch
+                } else {
+                    # Detached HEAD: cache by commit hash so re-entering the same commit reuses the lookup.
+                    $currentCacheKey = $currentHead.Trim()
+                }
+                if (-not $gitDirChanged -and $currentHead -ne $env:PROMPT_GIT_HEAD) {
+                    $headChanged = $true
+                }
+            }
+        }
+        if ($debugTimings) {
+            $debugTimings['head-read'] = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsHead).TotalMilliseconds
+        }
+
+        if (-not $gitDirChanged -and -not $headChanged) {
+            $env:PROMPT_GIT_DIR_CACHED = $env:PROMPT_GIT_DIR
+            $env:PROMPT_GIT_BRANCH_CACHED = $env:PROMPT_GIT_BRANCH
+            $env:PROMPT_PR_NUMBER_CACHED = $env:PROMPT_PR_NUMBER
+            $env:PROMPT_PR_STATE_CACHED = $env:PROMPT_PR_STATE
+        } else {
+            # Pass PowerShell-discovered git dir through so C# skips its own walk.
+            $env:PROMPT_GIT_DIR_CACHED = $env:PROMPT_GIT_DIR
+            $env:PROMPT_GIT_BRANCH_CACHED = ''
+
+            # Fetch PR info on git dir / HEAD change, using a per-branch cache so toggling
+            # between previously-seen branches skips the 350ms-1.3s `gh pr view` cost.
+            if ($env:PROMPT_GIT_DIR -and $currentCacheKey) {
+                if ($script:prCache.ContainsKey($currentCacheKey)) {
+                    $entry = $script:prCache[$currentCacheKey]
+                    $env:PROMPT_PR_NUMBER = $entry.Number
+                    $env:PROMPT_PR_STATE = $entry.State
+                } elseif (Get-Command gh -ErrorAction SilentlyContinue) {
+                    # Spawn a background `gh pr view` so the prompt doesn't block. PR info will
+                    # appear on the next prompt invocation when Receive-PendingPrJob harvests it.
+                    $alreadyPending = $script:prJob -and `
+                                      $script:prJob.CacheKey -eq $currentCacheKey -and `
+                                      $script:prJob.State -in 'Running','NotStarted'
+                    if (-not $alreadyPending) {
+                        # Cancel any in-flight job for a different branch — it would only ever
+                        # cache a stale-branch result, which is fine but wastes the gh call.
+                        if ($script:prJob) {
+                            Stop-Job   -Job $script:prJob -ErrorAction SilentlyContinue
+                            Remove-Job -Job $script:prJob -Force -ErrorAction SilentlyContinue
+                            $script:prJob = $null
+                        }
+                        $tsSpawn = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
+                        # Prefer ThreadJob (in-process, low overhead, bundled with pwsh 7+);
+                        # fall back to Start-Job on older / stripped installs.
+                        $startJob = Get-Command Start-ThreadJob -ErrorAction SilentlyContinue
+                        if (-not $startJob) { $startJob = Get-Command Start-Job }
+                        # Jobs don't inherit $PWD; pass it explicitly so `gh` runs inside the repo.
+                        $cwd = $PWD.ProviderPath
+                        $script:prJob = & $startJob -ScriptBlock {
+                            param($wd)
+                            Set-Location -LiteralPath $wd
+                            (gh pr view --json number,isDraft,state -q '"\(.number)|\(.state)|\(.isDraft)"' 2>$null)
+                        } -ArgumentList $cwd
+                        Add-Member -InputObject $script:prJob -NotePropertyName CacheKey -NotePropertyValue $currentCacheKey -Force
+                        if ($debugTimings) {
+                            $debugTimings['gh-pr-spawn'] = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsSpawn).TotalMilliseconds
+                        }
+                    }
+                    # PR info is empty for this prompt; the next prompt will harvest the job's result.
+                    $env:PROMPT_PR_NUMBER = ''
+                    $env:PROMPT_PR_STATE = ''
+                } else {
+                    $env:PROMPT_PR_NUMBER = ''
+                    $env:PROMPT_PR_STATE = ''
+                }
+            } else {
+                $env:PROMPT_PR_NUMBER = ''
+                $env:PROMPT_PR_STATE = ''
+            }
+            $env:PROMPT_PR_NUMBER_CACHED = $env:PROMPT_PR_NUMBER
+            $env:PROMPT_PR_STATE_CACHED = $env:PROMPT_PR_STATE
+        }
+
+        $invariant = [System.Globalization.CultureInfo]::InvariantCulture
+        $durationMs = ([int](Get-History -Count 1).Duration.TotalMilliseconds).ToString($invariant)
+        $arguments = @(
+            "prompt",
+            "--terminal-width=$($Host.UI.RawUI.WindowSize.Width)",
+            "--current-directory=$($PWD.Path)",
+            "--current-directory-is-filesystem=$($PWD.Provider.Name -eq 'FileSystem')",
+            "--last-command-state=$origDollarQuestion",
+            "--last-command-exit-code=$LASTEXITCODE",
+            "--last-command-duration=$durationMs"
+        )
+
+        # Invoke <Prompt>
+        $tsInvoke = if ($debugTimings) { [System.Diagnostics.Stopwatch]::GetTimestamp() } else { $null }
+        $promptText = Invoke-Native -Executable '{{processName}}' -Arguments $arguments
+        if ($debugTimings) {
+            $debugTimings['invoke-native'] = [System.Diagnostics.Stopwatch]::GetElapsedTime($tsInvoke).TotalMilliseconds
+        }
+
+        # Cache git info for next prompt (reuse the HEAD we already read above — no second I/O).
+        $env:PROMPT_GIT_CACHE_DIR = $PWD.Path
+        if ($env:PROMPT_GIT_DIR) {
+            $env:PROMPT_GIT_HEAD = $currentHead
+            $env:PROMPT_GIT_BRANCH = $currentBranch
+        }
+
+        # notify PSReadLine of a multiline prompt
+        Set-PSReadLineOption -ExtraPromptLineCount (($promptText | Measure-Object -Line).Lines - 1)
+
+        if ($debugTimings) {
+            $totalMs = [System.Diagnostics.Stopwatch]::GetElapsedTime($debugStart).TotalMilliseconds
+            foreach ($entry in $debugTimings.GetEnumerator()) {
+                Write-Host ("{0}: {1:F2}ms" -f $entry.Key, $entry.Value) -ForegroundColor DarkGray
+            }
+            Write-Host ("total: {0:F2}ms" -f $totalMs) -ForegroundColor DarkGray
+        }
+
+        # Return the full prompt with shell integration marks
+        # OSC 133;B — mark end of prompt / start of command input
+        $prompt + $promptText + "$e]133;B$st"
+
+        # Track history ID for next prompt's 133;D logic
+        $script:lastHistoryId = $lastHistory.Id
+
+        # Propagate the original $LASTEXITCODE from before the prompt function was invoked.
+        $global:LASTEXITCODE = $origLastExitCode
+
+        # Propagate the original $? automatic variable value from before the prompt function was invoked.
+        #
+        # $? is a read-only or constant variable so we can't directly override it.
+        # In order to propagate up its original boolean value we will take an action
+        # which will produce the desired value.
+        #
+        # This has to be the very last thing that happens in the prompt function
+        # since every PowerShell command sets the $? variable.
+        if ($global:? -ne $origDollarQuestion) {
+            if ($origDollarQuestion) {
+                # Simple command which will execute successfully and set $? = True without any other side affects.
+                1+1
+            } else {
+                # Write-Error will set $? to False.
+                # ErrorAction Ignore will prevent the error from being added to the $Error collection.
+                Write-Error '' -ErrorAction 'Ignore'
+            }
+        }
+    }
+
+    # OSC 133;C — mark start of command output (emitted when user presses Enter)
+    Set-PSReadLineKeyHandler -Key Enter -ScriptBlock {
+        [Console]::Write("$([char]27)]133;C$([char]27)\")
+        [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+    }
+}
