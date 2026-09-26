@@ -146,35 +146,19 @@ mod tests {
         list.iter().map(|s| s.to_string()).collect()
     }
 
-    fn defaults() -> (i32, String, bool, i32, i32, bool, bool) {
-        let width = console_window_width();
-        let cwd = env::current_dir().unwrap().to_string_lossy().into_owned();
-        (width, cwd, true, 0, 0, true, false)
-    }
-
     #[test]
     fn empty_args_use_fallbacks() {
-        let (width, cwd, fs, dur, code, state, simple) = {
-            let a = Arguments::parse(&args(&[]));
-            (
-                a.terminal_width,
-                a.current_directory,
-                a.current_directory_is_filesystem,
-                a.last_command_duration_ms,
-                a.last_command_exit_code,
-                a.last_command_state,
-                a.simple_mode,
-            )
-        };
+        let a = Arguments::parse(&args(&[]));
+        assert_eq!(a.terminal_width, console_window_width());
+        assert!(a.current_directory_is_filesystem);
+        assert_eq!(a.last_command_duration_ms, 0);
+        assert_eq!(a.last_command_exit_code, 0);
+        assert!(a.last_command_state);
+        assert!(!a.simple_mode);
         assert_eq!(
-            (width, fs, dur, code, state, simple),
-            (console_window_width(), true, 0, 0, true, false)
-        );
-        assert_eq!(
-            cwd,
+            a.current_directory,
             env::current_dir().unwrap().to_string_lossy().into_owned()
         );
-        let _ = defaults();
     }
 
     #[test]
