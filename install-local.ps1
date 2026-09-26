@@ -11,7 +11,7 @@
 
     Requirements:
     - PowerShell 7.0+
-    - .NET 10 SDK
+    - Rust toolchain (cargo)
 
 .PARAMETER Force
     Skip confirmation prompts and overwrite existing installation.
@@ -45,7 +45,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $ProjectName = 'pwsh-prompt'
-$ProjectFile = 'src/pwsh-prompt/pwsh-prompt.csproj'
+$CrateDir = 'src/pwsh-prompt-rs'
+$ManifestPath = "$CrateDir/Cargo.toml"
 
 # Check if the local clone is up-to-date with remote
 Write-Host "Checking if repository is up-to-date..." -ForegroundColor Cyan
@@ -104,25 +105,23 @@ if ($AlreadyInstalled -and -not $Force) {
     }
 }
 
-# Check for .NET SDK
+# Check for the Rust toolchain
 try {
-    $dotnetVersion = & dotnet --version 2>&1
-    Write-Host ".NET SDK version: $dotnetVersion" -ForegroundColor Cyan
+    $cargoVersion = & cargo --version 2>&1
+    Write-Host "Cargo version: $cargoVersion" -ForegroundColor Cyan
 } catch {
-    Write-Host "Error: .NET SDK not found. Please install .NET 10 SDK or later." -ForegroundColor Red
-    Write-Host "Download from: https://dotnet.microsoft.com/download/dotnet/10.0" -ForegroundColor Cyan
+    Write-Host "Error: cargo not found. Please install the Rust toolchain." -ForegroundColor Red
+    Write-Host "Download from: https://rustup.rs" -ForegroundColor Cyan
     exit 1
 }
 
-# Build and publish the project
+# Build the crate
 Write-Host "Building $ProjectName..." -ForegroundColor Cyan
-$projectPath = Join-Path $PSScriptRoot $ProjectFile
-$publishPath = Join-Path $PSScriptRoot 'artifacts/publish'
+$cratePath = Join-Path $PSScriptRoot $CrateDir
+$buildPath = Join-Path $cratePath 'target/release'
 
 try {
-    dotnet publish $projectPath `
-        -c Release `
-        --output $publishPath
+    cargo build --release --manifest-path "$CrateDir/Cargo.toml"
 
     if ($LASTEXITCODE -ne 0) {
         throw "Build failed with exit code $LASTEXITCODE"
@@ -133,7 +132,7 @@ try {
 }
 
 # Verify executable exists
-$exePath = Join-Path $publishPath $exeName
+$exePath = Join-Path $buildPath $exeName
 
 if (-not (Test-Path $exePath)) {
     Write-Host "Error: Build succeeded but executable not found at: $exePath" -ForegroundColor Red

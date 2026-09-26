@@ -52,3 +52,25 @@ jobs:
         name: pwsh-prompt-${{ matrix.rid }}
         path: publish/
 
+  rust:
+    name: Rust (Build & Test, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+          - os: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - name: Format check
+      run: cargo fmt --check --manifest-path src/pwsh-prompt-rs/Cargo.toml
+    - name: Clippy
+      run: cargo clippy --all-targets --manifest-path src/pwsh-prompt-rs/Cargo.toml -- -D warnings
+    - name: Test
+      run: cargo test --manifest-path src/pwsh-prompt-rs/Cargo.toml
+    - name: Build (release)
+      run: cargo build --release --manifest-path src/pwsh-prompt-rs/Cargo.toml
+

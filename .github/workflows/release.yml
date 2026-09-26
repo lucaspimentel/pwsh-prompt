@@ -29,20 +29,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5.2.0
-        with:
-          dotnet-version: '10.0.x'
+      - name: Build (Rust, release)
+        run: cargo build --release --manifest-path src/pwsh-prompt-rs/Cargo.toml
 
-      - name: Restore dependencies
-        run: dotnet restore src/pwsh-prompt
-
-      - name: Publish
-        run: dotnet publish src/pwsh-prompt/pwsh-prompt.csproj -c Release -r ${{ matrix.rid }} --self-contained -o dist/${{ matrix.rid }}/
-
-      - name: Copy additional files
+      - name: Stage distribution files
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force -Path dist/${{ matrix.rid }} | Out-Null
+          $exe = if ('${{ matrix.os }}' -eq 'windows-latest') { 'pwsh-prompt.exe' } else { 'pwsh-prompt' }
+          Copy-Item "src/pwsh-prompt-rs/target/release/$exe" "dist/${{ matrix.rid }}/$exe"
           Copy-Item LICENSE dist/${{ matrix.rid }}/
           Copy-Item README.md dist/${{ matrix.rid }}/
 
