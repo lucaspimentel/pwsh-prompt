@@ -16,33 +16,40 @@ pub struct DateTimeSegment {
     hour: u32,
 }
 
+pub struct DateTimeRendered {
+    pub text: String,
+    pub hour: u32,
+}
+
 impl DateTimeSegment {
     pub fn new() -> Self {
         let now = Local::now();
-        let segment = DateTimeSegment::from_parts(
-            now.year(),
-            now.month(),
-            now.day(),
-            now.hour(),
-            now.minute(),
-        );
+        let rendered =
+            render_datetime(now.year(), now.month(), now.day(), now.hour(), now.minute());
         DateTimeSegment {
-            rendered: segment.0,
-            hour: segment.1,
+            rendered: rendered.text,
+            hour: rendered.hour,
         }
     }
+}
 
-    /// Renders the format string and returns (rendered text, hour).
-    pub fn from_parts(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> (String, u32) {
-        let hour_12 = match hour % 12 {
-            0 => 12,
-            h => h,
-        };
-        let meridiem = if hour < 12 { "AM" } else { "PM" };
-        (
-            format!(" {year:04}-{month:02}-{day:02} {hour_12}:{minute:02} {meridiem} "),
-            hour,
-        )
+/// Renders the format string; `hour` is the 24-hour input hour, kept for the
+/// width quirk (see module docs).
+pub fn render_datetime(
+    year: i32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+) -> DateTimeRendered {
+    let hour_12 = match hour % 12 {
+        0 => 12,
+        h => h,
+    };
+    let meridiem = if hour < 12 { "AM" } else { "PM" };
+    DateTimeRendered {
+        text: format!(" {year:04}-{month:02}-{day:02} {hour_12}:{minute:02} {meridiem} "),
+        hour,
     }
 }
 
@@ -70,7 +77,7 @@ mod tests {
     use crate::segments::Segment;
 
     fn render(hour: u32) -> String {
-        DateTimeSegment::from_parts(2026, 9, 26, hour, 8).0
+        render_datetime(2026, 9, 26, hour, 8).text
     }
 
     #[test]
@@ -87,8 +94,11 @@ mod tests {
     #[test]
     fn length_quirk_matches_csharp() {
         let length_for = |hour: u32| {
-            let (rendered, hour) = DateTimeSegment::from_parts(2026, 9, 26, hour, 8);
-            let segment = DateTimeSegment { rendered, hour };
+            let rendered = render_datetime(2026, 9, 26, hour, 8);
+            let segment = DateTimeSegment {
+                rendered: rendered.text,
+                hour: rendered.hour,
+            };
             segment.unformatted_length()
         };
         // Template length is 20; hours 10 and 11 render a two-digit hour.
@@ -104,8 +114,11 @@ mod tests {
 
     #[test]
     fn appends_without_color() {
-        let (rendered, hour) = DateTimeSegment::from_parts(2026, 1, 2, 3, 4);
-        let segment = DateTimeSegment { rendered, hour };
+        let rendered = render_datetime(2026, 1, 2, 3, 4);
+        let segment = DateTimeSegment {
+            rendered: rendered.text,
+            hour: rendered.hour,
+        };
         let mut out = String::new();
         segment.append(&mut out);
         assert_eq!(out, " 2026-01-02 3:04 AM ");
