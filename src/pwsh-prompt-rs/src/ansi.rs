@@ -7,8 +7,6 @@
 // arbitrary hex colors like #ff7fff resolve to truecolor. The constants below
 // reproduce the exact byte sequences.
 
-use crate::settings;
-
 /// Markup tag "aqua" (Spectre Color(0, 255, 255)) -> indexed bright cyan.
 pub const AQUA: &str = "\x1b[38;5;14m";
 /// Markup tag "blue" (Spectre Color(0, 0, 255)) -> indexed bright blue.
@@ -79,40 +77,91 @@ struct Char {
     style: Option<&'static str>,
 }
 
+/// Holds the DEBUG_PROMPT output settings: whether debug output is enabled and
+/// the wrap width (the AnsiConsole profile width, terminalWidth * 2). It is
+/// constructed once in main and threaded through the code that renders debug
+/// lines, keeping those functions free of global state. Every method is a
+/// no-op when debug output is disabled.
+pub struct DebugSink {
+    enabled: bool,
+    width: i32,
+}
+
 /// AnsiConsole.WriteLine for a composed line of styled spans: word-wraps the
 /// visible text at the profile width (terminalWidth * 2), re-emitting each
 /// style at the start of every wrapped line and resetting at its end.
-pub fn write_debug_line(spans: &[DebugSpan]) {
-    use std::io::Write;
-    let width = settings::debug_width();
-    let stdout = std::io::stdout();
-    let mut out = stdout.lock();
+impl DebugSink {
+    /// Creates a sink that writes when `enabled` is true, wrapping lines at
+    /// `width` columns.
+    pub fn new(enabled: bool, width: i32) -> Self {
+        DebugSink { enabled, width }
+    }
 
-    for line in wrap_spans(spans, width) {
-        for span in line {
-            match span.style {
-                Some(style) => {
-                    let _ = write!(out, "{style}{}{RESET}", span.text);
-                }
-                None => {
-                    let _ = write!(out, "{}", span.text);
+    /// A sink that never writes; used by callers that do not render debug
+    /// output (tests, non-debug code paths).
+    #[cfg(test)]
+    pub fn disabled() -> Self {
+        DebugSink {
+            enabled: false,
+            width: 0,
+        }
+    }
+
+    /// True when DEBUG_PROMPT output should be rendered.
+    pub fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Writes an unstyled line (AnsiConsole.WriteLine with plain text).
+    pub fn plain_line(&self, text: &str) {
+        self.write_line(&[DebugSpan::plain(text)]);
+    }
+
+    /// Writes a fully yellow line (AnsiConsole.MarkupLineInterpolated with a
+    /// single [yellow]...[/] span).
+    pub fn yellow_line(&self, text: &str) {
+        self.write_line(&[DebugSpan::styled(YELLOW, text)]);
+    }
+
+    /// Writes a composed line of styled spans.
+    pub fn debug_line(&self, spans: &[DebugSpan]) {
+        self.write_line(spans);
+    }
+
+    fn write_line(&self, spans: &[DebugSpan]) {
+        if !self.enabled {
+            return;
+        }
+        use std::io::Write;
+        let stdout = std::io::stdout();
+        let mut out = stdout.lock();
+
+        for line in wrap_spans(spans, self.width) {
+            for span in line {
+                match span.style {
+                    Some(style) => {
+                        let _ = write!(out, "{style}{}{RESET}", span.text);
+                    }
+                    None => {
+                        let _ = write!(out, "{}", span.text);
+                    }
                 }
             }
+            let _ = write!(out, "{}", platform_newline());
         }
-        let _ = write!(out, "{}", platform_newline());
+        let _ = out.flush();
     }
-    let _ = out.flush();
 }
 
-/// Writes an unstyled line (AnsiConsole.WriteLine with plain text).
+/// Writes an unstyled line without wrapping; used for plain CLI output
+/// (--version, usage) that never goes through the debug profile width.
 pub fn write_plain_line(text: &str) {
-    write_debug_line(&[DebugSpan::plain(text)]);
-}
-
-/// Writes a fully yellow line (AnsiConsole.MarkupLineInterpolated with a
-/// single [yellow]...[/] span).
-pub fn write_yellow_line(text: &str) {
-    write_debug_line(&[DebugSpan::styled(YELLOW, text)]);
+    use std::io::Write;
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    let _ = out.write_all(text.as_bytes());
+    let _ = out.write_all(platform_newline().as_bytes());
+    let _ = out.flush();
 }
 
 /// Splits the spans into wrapped lines. The visible text is split into word

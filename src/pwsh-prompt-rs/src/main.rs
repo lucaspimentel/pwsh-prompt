@@ -15,6 +15,7 @@ mod settings;
 #[cfg(test)]
 mod test_support;
 
+use ansi::{DebugSink, DebugSpan};
 use segments::{Segment, StringSegment};
 
 const VERSION_SHA: &str = env!("PROMPT_GIT_SHA");
@@ -53,23 +54,23 @@ fn main() {
 }
 
 fn run_prompt(args: &[String]) {
+    let state = args::Arguments::parse(args);
     // AnsiConsole's profile width is terminalWidth * 2; it governs the
     // wrapping of DEBUG output lines.
-    let state = args::Arguments::parse(args);
-    settings::set_debug_width(state.terminal_width.saturating_mul(2));
+    let sink = ansi::DebugSink::new(settings::debug(), state.terminal_width.saturating_mul(2));
+    let debug = sink.enabled();
 
     // Per-segment construction timings, shown when DEBUG_PROMPT=1. Matches
     // the C# SegmentTimer dictionary (keyed by type name).
     let mut timings: Vec<(&'static str, f64)> = Vec::new();
-    let debug = settings::debug();
 
-    if settings::debug() {
-        ansi::write_plain_line(&format!("Literal arguments: \"prompt {}\"", args.join(" ")));
-        ansi::write_plain_line(&format!("Parsed arguments: {}", state.debug_string()));
+    if debug {
+        sink.plain_line(&format!("Literal arguments: \"prompt {}\"", args.join(" ")));
+        sink.plain_line(&format!("Parsed arguments: {}", state.debug_string()));
         let current_directory = std::env::current_dir()
             .map(|d| d.to_string_lossy().into_owned())
             .unwrap_or_default();
-        ansi::write_plain_line(&format!("Current directory: {current_directory}"));
+        sink.plain_line(&format!("Current directory: {current_directory}"));
     }
 
     let mut measure = |name: &'static str, start: std::time::Instant| {
@@ -84,7 +85,7 @@ fn run_prompt(args: &[String]) {
         measure("HostSegment", start);
 
         let start = std::time::Instant::now();
-        let git_segment = segments::git::GitSegment::new(&state.current_directory);
+        let git_segment = segments::git::GitSegment::new(&state.current_directory, &sink);
         measure("GitSegment", start);
 
         let max_path_length = state.terminal_width
@@ -98,6 +99,7 @@ fn run_prompt(args: &[String]) {
             state.current_directory_is_filesystem,
             max_path_length,
             true,
+            &sink,
         );
         measure("PathSegment", start);
 
@@ -112,7 +114,7 @@ fn run_prompt(args: &[String]) {
         measure("HostSegment", start);
 
         let start = std::time::Instant::now();
-        let git_segment = segments::git::GitSegment::new(&state.current_directory);
+        let git_segment = segments::git::GitSegment::new(&state.current_directory, &sink);
         measure("GitSegment", start);
 
         let start = std::time::Instant::now();
@@ -159,6 +161,7 @@ fn run_prompt(args: &[String]) {
             state.current_directory_is_filesystem,
             max_path_length,
             false,
+            &sink,
         );
         measure("PathSegment", start);
 
@@ -194,7 +197,13 @@ fn run_prompt(args: &[String]) {
     };
 
     let mut prompt = String::new();
-    combine_segments(&segments, state.terminal_width, &mut prompt, &timings);
+    combine_segments(
+        &segments,
+        state.terminal_width,
+        &mut prompt,
+        &timings,
+        &sink,
+    );
     // AnsiConsole.Markup writes the prompt without a trailing newline.
     ansi::write_raw(&prompt);
 }
@@ -208,31 +217,32 @@ fn combine_segments(
     width: i32,
     out: &mut String,
     timings: &[(&'static str, f64)],
+    sink: &DebugSink,
 ) {
-    if settings::debug() {
-        ansi::write_debug_line(&[ansi::DebugSpan::plain("")]);
+    if sink.enabled() {
+        sink.debug_line(&[DebugSpan::plain("")]);
 
         for segment in segments {
             let type_name = segment.name();
-            let mut spans = vec![ansi::DebugSpan::styled(
+            let mut spans = vec![DebugSpan::styled(
                 ansi::YELLOW,
                 format!("{} ({})", type_name, segment.unformatted_length()),
             )];
 
             if let Some((_, ms)) = timings.iter().find(|(name, _)| *name == type_name) {
                 // The C# timing string has a leading space before the grey tag.
-                spans.push(ansi::DebugSpan::plain(" "));
-                spans.push(ansi::DebugSpan::styled(ansi::GREY, format!("[{ms:.2}ms]")));
+                spans.push(DebugSpan::plain(" "));
+                spans.push(DebugSpan::styled(ansi::GREY, format!("[{ms:.2}ms]")));
             }
 
             if !segment.is_newline() {
-                spans.push(ansi::DebugSpan::plain(format!(
+                spans.push(DebugSpan::plain(format!(
                     ": \"{}\"",
                     segment.display_text()
                 )));
             }
 
-            ansi::write_debug_line(&spans);
+            sink.debug_line(&spans);
         }
     }
 
@@ -272,8 +282,9 @@ mod tests {
     };
 
     fn combine(segments: Vec<Box<dyn Segment>>, width: i32) -> String {
+        let sink = DebugSink::disabled();
         let mut out = String::new();
-        combine_segments(&segments, width, &mut out, &[]);
+        combine_segments(&segments, width, &mut out, &[], &sink);
         out
     }
 
@@ -286,7 +297,8 @@ mod tests {
         is_file_system: bool,
     ) -> Vec<Box<dyn Segment>> {
         let host_segment = HostSegment::new();
-        let git_segment = segments::git::GitSegment::new(current_directory);
+        let sink = DebugSink::disabled();
+        let git_segment = segments::git::GitSegment::new(current_directory, &sink);
         let last_command_exit_code_segment = LastCommandExitCodeSegment::new(0, true);
         let last_command_duration_segment =
             LastCommandDurationSegment::new(0, settings::LAST_COMMAND_DURATION_THRESHOLD_MS);
@@ -303,8 +315,13 @@ mod tests {
             - date_time_segment.unformatted_length()
             - 3;
 
-        let path_segment =
-            PathSegment::new(current_directory, is_file_system, max_path_length, false);
+        let path_segment = PathSegment::new(
+            current_directory,
+            is_file_system,
+            max_path_length,
+            false,
+            &sink,
+        );
 
         let filler_width = terminal_width
             - host_segment.unformatted_length()

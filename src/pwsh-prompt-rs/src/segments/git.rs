@@ -12,9 +12,9 @@ impl GitSegment {
     const PR_ICON_CLOSED: &'static str = "  \u{EBDA} "; // closed PR icon
     const PR_ICON_DRAFT: &'static str = "  \u{EBDB} "; // draft PR icon
 
-    pub fn new(path: &str) -> Self {
+    pub fn new(path: &str, sink: &crate::ansi::DebugSink) -> Self {
         if crate::path_utils::file_exists(path) || dir_exists(path) {
-            let branch_name = crate::git_info::get_branch_name(path);
+            let branch_name = crate::git_info::get_branch_name(path, sink);
 
             let pr_number = std::env::var("PROMPT_PR_NUMBER_CACHED").unwrap_or_default();
             if !pr_number.is_empty() {
@@ -117,6 +117,7 @@ mod tests {
             .lock()
             .unwrap_or_else(|e| e.into_inner());
         let _guard = crate::test_support::PromptEnvGuard::clear();
+        let sink = crate::ansi::DebugSink::disabled();
 
         let dir = std::env::temp_dir().join("pwsh-prompt-tests-git-segment");
         let _ = std::fs::remove_dir_all(&dir);
@@ -124,7 +125,7 @@ mod tests {
         let path = dir.to_str().unwrap();
 
         // Nonexistent path: nothing rendered.
-        let segment = GitSegment::new(r"C:\definitely\not\here");
+        let segment = GitSegment::new(r"C:\definitely\not\here", &sink);
         let mut out = String::new();
         segment.append(&mut out);
         assert_eq!(out, "");
@@ -132,7 +133,7 @@ mod tests {
 
         // Existing directory without a repo: nothing rendered (empty
         // branch), PR icon defaults to open but is not rendered.
-        let segment = GitSegment::new(path);
+        let segment = GitSegment::new(path, &sink);
         let mut out = String::new();
         segment.append(&mut out);
         assert_eq!(out, "");
@@ -142,7 +143,7 @@ mod tests {
         crate::test_support::set_var("PROMPT_GIT_DIR_CACHED", "D:\\fake\\.git");
         crate::test_support::set_var("PROMPT_GIT_BRANCH_CACHED", "main");
 
-        let segment = GitSegment::new(path);
+        let segment = GitSegment::new(path, &sink);
         assert_eq!(segment.unformatted_length(), 8); // prefix 4 + "main" 4
         let mut out = String::new();
         segment.append(&mut out);
@@ -150,7 +151,7 @@ mod tests {
 
         crate::test_support::set_var("PROMPT_PR_NUMBER_CACHED", "#12");
         crate::test_support::set_var("PROMPT_PR_STATE_CACHED", "closed");
-        let segment = GitSegment::new(path);
+        let segment = GitSegment::new(path, &sink);
         let mut out = String::new();
         segment.append(&mut out);
         assert_eq!(
@@ -160,13 +161,13 @@ mod tests {
         assert_eq!(segment.unformatted_length(), 15);
 
         crate::test_support::set_var("PROMPT_PR_STATE_CACHED", "draft");
-        let segment = GitSegment::new(path);
+        let segment = GitSegment::new(path, &sink);
         let mut out = String::new();
         segment.append(&mut out);
         assert!(out.contains("\u{EBDB}"));
 
         crate::test_support::set_var("PROMPT_PR_STATE_CACHED", "");
-        let segment = GitSegment::new(path);
+        let segment = GitSegment::new(path, &sink);
         let mut out = String::new();
         segment.append(&mut out);
         assert!(out.contains("\u{EA64}"));

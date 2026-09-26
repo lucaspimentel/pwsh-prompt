@@ -5,10 +5,9 @@
 // All index arithmetic operates on UTF-16 code units to match the C#
 // StringSegment/String.Length semantics exactly.
 
-use crate::ansi;
+use crate::ansi::{self, DebugSink};
 use crate::git_info;
 use crate::path_utils;
-use crate::settings;
 
 pub struct PathSegment {
     current_directory_display: String,
@@ -26,6 +25,7 @@ impl PathSegment {
         is_file_system: bool,
         max_path_length: i32,
         simple_mode: bool,
+        sink: &DebugSink,
     ) -> Self {
         let mut segment = PathSegment {
             current_directory_display: current_directory.to_string(),
@@ -47,7 +47,7 @@ impl PathSegment {
             return segment;
         };
 
-        if let Some(git_directory) = git_info::try_find_git_folder(current_directory) {
+        if let Some(git_directory) = git_info::try_find_git_folder(current_directory, sink) {
             segment.is_git_repo = true;
 
             // In simple mode, keep the full path instead of shortening to
@@ -86,9 +86,7 @@ impl PathSegment {
         } else {
             let user_profile_directory = user_profile_directory();
 
-            if settings::debug() {
-                ansi::write_yellow_line(&format!("userProfileDirectory: {user_profile_directory}"));
-            }
+            sink.yellow_line(&format!("userProfileDirectory: {user_profile_directory}"));
 
             if starts_with_ignore_case_units(current_directory, &user_profile_directory) {
                 // remove user home from path, prepend "~" later
@@ -98,12 +96,10 @@ impl PathSegment {
             }
         }
 
-        if settings::debug() {
-            ansi::write_yellow_line(&format!(
-                "displayPath before truncating: {}",
-                segment.current_directory_display
-            ));
-        }
+        sink.yellow_line(&format!(
+            "displayPath before truncating: {}",
+            segment.current_directory_display
+        ));
 
         if let Some(truncated) =
             try_shorten_path(&segment.current_directory_display, max_path_length)
@@ -112,12 +108,10 @@ impl PathSegment {
             segment.current_directory_display = truncated;
         }
 
-        if settings::debug() {
-            ansi::write_yellow_line(&format!(
-                "displayPath after truncating: {}",
-                segment.current_directory_display
-            ));
-        }
+        sink.yellow_line(&format!(
+            "displayPath after truncating: {}",
+            segment.current_directory_display
+        ));
 
         segment
     }
@@ -274,7 +268,13 @@ mod tests {
         max_path_length: i32,
         simple_mode: bool,
     ) -> (PathSegment, String) {
-        let segment = PathSegment::new(current_directory, true, max_path_length, simple_mode);
+        let segment = PathSegment::new(
+            current_directory,
+            true,
+            max_path_length,
+            simple_mode,
+            &DebugSink::disabled(),
+        );
         let mut out = String::new();
         segment.append(&mut out);
         (segment, out)

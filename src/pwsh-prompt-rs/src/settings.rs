@@ -17,19 +17,3 @@ fn debug_enabled() -> bool {
 pub fn debug() -> bool {
     debug_enabled()
 }
-
-fn debug_width_cell() -> &'static OnceLock<i32> {
-    static WIDTH: OnceLock<i32> = OnceLock::new();
-    &WIDTH
-}
-
-/// Sets the debug wrap width (the C# AnsiConsole profile width, which is
-/// terminalWidth * 2). Called once at prompt startup.
-pub fn set_debug_width(width: i32) {
-    let _ = debug_width_cell().set(width);
-}
-
-/// The wrap width for debug output lines; 0 means no wrapping (unset).
-pub fn debug_width() -> i32 {
-    *debug_width_cell().get().unwrap_or(&0)
-}
