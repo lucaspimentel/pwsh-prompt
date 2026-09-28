@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.0] - 2026-09-28
+
+### Added
+- Add Rust implementation as the release target, byte-compatible with the C# version
+- Add parity check script that compares both binaries byte-for-byte
+- Add end-to-end benchmark comparing Rust and C# startup and render time
+
+### Changed
+- Build the Rust implementation in CI, the release workflow, and the install scripts
+- Document the Rust port in the README
+- Inject environment access into segments and git info, dropping unsafe test helpers
+- Update Spectre.Console to 0.57.2
+- Update Microsoft.Extensions.Primitives to 10.0.11
+
+### Fixed
+- Fix prompt rendering differences found during Rust/C# parity testing
+
 ## [0.7.0] - 2026-06-16
 
 ### Changed

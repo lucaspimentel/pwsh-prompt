@@ -1,7 +1,7 @@
 <Project>
 
   <PropertyGroup>
-    <Version>0.7.0</Version>
+    <Version>0.8.0</Version>
     <!-- Print the plain semantic version; the SDK otherwise appends
          the git commit to the informational version. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
