@@ -1,5 +1,6 @@
 actions: [version, changelog, docs, commit, tag, push, watch, release]
 version-files:
   - Directory.Build.props
+  - src/pwsh-prompt-rs/Cargo.toml
 changelog-file: CHANGELOG.md
 tag-format: "v{version}"
