@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.8.1] - 2026-09-28
+
+### Fixed
+- Fix `pwsh-prompt --version` reporting the previous release's version
+
 ## [0.8.0] - 2026-09-28
 
 ### Added
