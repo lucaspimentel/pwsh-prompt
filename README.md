@@ -2,13 +2,13 @@
 
 [![CI](https://github.com/lucaspimentel/pwsh-prompt/actions/workflows/ci.yml/badge.svg)](https://github.com/lucaspimentel/pwsh-prompt/actions/workflows/ci.yml) [![Release](https://github.com/lucaspimentel/pwsh-prompt/actions/workflows/release.yml/badge.svg)](https://github.com/lucaspimentel/pwsh-prompt/actions/workflows/release.yml)
 
-A fast, minimal shell prompt for PowerShell, written in C#.
+A fast, minimal shell prompt for PowerShell, written in Rust.
 
 Pre-built binaries support Windows and Linux. macOS is supported when built from source.
 
 ## Features
 
-- **Lightning fast**: Native AOT compilation means zero startup delay
+- **Lightning fast**: Compiled to a small native binary with zero startup delay
 - **Git integration**: Shows current branch and PR number with status icons (open, draft, closed) and smart caching
 - **Path display**: Intelligently truncates long paths to fit terminal width
 - **Command feedback**: Displays exit codes and execution duration
