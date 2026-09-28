@@ -418,6 +418,6 @@ mod tests {
 
     #[test]
     fn version_string_is_plain_semver() {
-        assert_eq!(version_string(), "0.7.0");
+        assert_eq!(version_string(), env!("CARGO_PKG_VERSION"));
     }
 }
