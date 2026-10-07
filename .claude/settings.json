@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "grep -q '\\.rs\"' && cargo fmt --manifest-path \"$CLAUDE_PROJECT_DIR/src/pwsh-prompt-rs/Cargo.toml\" || true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && { git diff --quiet HEAD -- src/pwsh-prompt-rs && [ -z \"$(git ls-files --others --exclude-standard src/pwsh-prompt-rs)\" ]; } && exit 0; out=$(cargo clippy --quiet --all-targets --manifest-path src/pwsh-prompt-rs/Cargo.toml -- -D warnings 2>&1) || { echo \"$out\" >&2; exit 2; }"
+          }
+        ]
+      }
+    ]
+  }
+}
