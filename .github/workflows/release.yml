@@ -8,12 +8,35 @@ on:
     inputs:
       version:
         description: 'Version to release (e.g., 1.0.0)'
-        required: true
+        required: false
         type: string
+      dry_run:
+        description: 'Build and test only; skip publishing and release creation'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
+  check-inputs:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Validate workflow inputs
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] \
+          && [ "${{ inputs.dry_run }}" != "true" ] \
+          && [ -z "${{ inputs.version }}" ]; then
+          echo "::error::version is required when dry_run is false"
+          exit 1
+        fi
+
+  ci:
+    needs: check-inputs
+    uses: ./.github/workflows/ci.yml
+
   build:
     name: Build Release Binaries
+    needs: ci
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -75,6 +98,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: build
+    if: github.event_name == 'push' || !inputs.dry_run
     runs-on: ubuntu-latest
     permissions:
       contents: write
